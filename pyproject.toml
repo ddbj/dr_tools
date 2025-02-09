@@ -1,0 +1,32 @@
+[project]
+name = "mss_tools"
+version = "0.0.1"
+authors = [{ name="nigyta", email="yt@nig.ac.jp" }]
+description = "Utility tools for handling DDBJ MSS and its json data model"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "requests ~= 2.23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "twine",
+]
+
+
+[project.scripts]
+mss_hello = "mss_tools:hello"
+mss_ann2json = "mss_tools.ann2json:main"
+mss_json2ann = "mss_tools.json2ann:main"
+
+[project.urls]
+"Homepage" = "https://github.com/ddbj/mss_tools"
+"Bug Tracker" = "https://github.com/ddbj/mss_tools/issues"

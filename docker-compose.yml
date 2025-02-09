@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+  python-dev:
+    build: .
+    volumes:
+      - .:/mss_tools
+    working_dir: /mss_tools
+    tty: true
+    command: /bin/bash
