@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+from pathlib import Path
 import re
 import logging
 from typing import Dict, List, Any, Optional, Tuple
@@ -329,10 +330,12 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     if translation:
         feature.qualifiers["translation"] = [str(translation)]
 
-def json_to_seqrecords(json_data: Dict) -> List[SeqRecord]:
+def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
     """
     JSONデータをBioPythonのSeqRecordオブジェクトのリストに変換する
     """
+    with open(json_file) as f:
+        json_data = json.load(f)
     records = []
     
     common = json_data.get("COMMON", {})
@@ -471,12 +474,12 @@ def json2gbk_main():
     output_file = args.output_file
 
     # JSONファイルの読み込み
-    with open(input_file) as f:
-    # with open("draft_genome.json") as f:
-        json_data = json.load(f)
+    # with open(input_file) as f:
+    # # with open("draft_genome.json") as f:
+    #     json_data = json.load(f)
     
     # JSONデータをSeqRecordに変換
-    records = json_to_seqrecords(json_data)
+    records = json_to_seqrecords(input_file)
     
     # GenBank形式で出力
     if output_file:

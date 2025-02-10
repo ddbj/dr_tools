@@ -8,32 +8,61 @@ Python module for handling MSS format and its json data model
 pip install "git+https://github.com/ddbj/mss_tools.git"
 ```
 
+Requirements:  
+- Python >= 3.9
+- Biopython >= 1.82
+
+
 ## Usage
 ```
 from mss_tools import mss_ann2json, mss_json2ann, mss_json2gbk, json_to_seqrecords
 
-# DFAST が生成した MSS 登録ファイル (ann, seq) を JSON に変換
+# DFAST が生成した MSS 登録ファイル (ann, seq) を DFAST results JSON に変換
 # DFAST 以外の MSS 登録ファイルにも今後対応予定
-mss_ann2json(ann_file, seq_file, out_json_file)
+mss_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "dfast_results.json")
 
 # JSON ファイルを MSS 登録ファイル (ann, seq) に変換
 # out_dir はデフォルトではカレントディレクトリ
 # out_prefix はデフォルトで None で、BioSample や strain の値を反映して自動で生成される。
 # 出力ファイルは {out_dir}/{out_prefix}.ann と .fa
-mss_json2ann(json_file, out_dir, out_prefix)
+mss_json2ann("examples/complete_genome.json", "OUTPUT", "DDBJ-MSS")
 
 
 # JSON ァイルから BioPython の SeqRecord オブジェクトに変換
-records = json_to_seqrecords(json_file)
+records = json_to_seqrecords("examples/complete_genome.json")
 # BioPython の機能を使って GenBank 形式に変換
-with open(output_file, "w") as f:
+from Bio import SeqIO
+with open("out.gbk", "w") as f:
     SeqIO.write(records, f, "genbank")
 
 # JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
 from mss_tools.json_utils import get_feature_json
-data = get_feature_json(json_file, feature_id)
+data = get_feature_json("dfast_results.json", "feature_11")
 json_data = json.dumps(data)
+# 出力例:
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+TypeError: 'indent' is an invalid keyword argument for print()
+>>> print(json.dumps(data, indent=2))
+{
+  "id": "feature_11",
+  "type": "CDS",
+  "location": "1852..2991",
+  "qualifiers": {
+    "product": ["DNA polymerase III subunit beta"],
+    "transl_table": ["11"],
+    "codon_start": ["1"],
+    "gene": ["dnaN"],
+    "inference": ["COORDINATES:ab initio prediction:MetaGeneAnnotator",
+      "similar to AA sequence:RefSeq:WP_003641629.1"
+    ],
+    "locus_tag": ["PLH_00020"]
+  },
+  "locus_tag_id": "00020",
+  "nucleotide": "ATGATGAGATGA",
+  "translation": "MFH...."
+}
 
 # JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
 # 未実装

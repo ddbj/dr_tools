@@ -189,7 +189,7 @@ def make_entry_dict(mss, seq_info):
         if entry.id == "COMMON":
             continue
         sequence = sequence_dict[entry.id]  # note: sequence.id and entry.id is always identical, but entry.name may be different.
-        sequence = sequence[:10] + "..."  # for debug
+        # sequence = sequence[:10] + "..."  # for debug
         seq_info_dict = seq_info.get(entry.id, {})
         seq_type, seq_topology = seq_info_dict.get("seq_type", "other"), seq_info_dict.get("seq_topology", "linear")
         features = [feature.to_dict() for feature in entry.features if feature.type != "TOPOLOGY"]
