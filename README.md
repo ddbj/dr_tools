@@ -12,37 +12,37 @@ pip install "git+https://github.com/ddbj/mss_tools.git"
 ```
 from mss_tools import mss_ann2json, mss_json2ann, mss_json2gbk, json_to_seqrecords
 
-# DFASTが生成したMSS登録ファイル (ann, seq) をJSONに変換
-# DFAST以外のMSS登録ファイルにも今後対応予定
+# DFAST が生成した MSS 登録ファイル (ann, seq) を JSON に変換
+# DFAST 以外の MSS 登録ファイルにも今後対応予定
 mss_ann2json(ann_file, seq_file, out_json_file)
 
-# JSONファイルをMSS登録ファイル (ann, seq) に変換
-# out_dirはデフォルトではカレントディレクトリ
-# out_prefixはデフォルトでNoneで、BioSampleやstrainの値を反映して自動で生成される。
+# JSON ファイルを MSS 登録ファイル (ann, seq) に変換
+# out_dir はデフォルトではカレントディレクトリ
+# out_prefix はデフォルトで None で、BioSample や strain の値を反映して自動で生成される。
 # 出力ファイルは {out_dir}/{out_prefix}.ann と .fa
 mss_json2ann(json_file, out_dir, out_prefix)
 
 
-# JSONファイルからBioPythonのSeqRecordに変換
+# JSON ァイルから BioPython の SeqRecord オブジェクトに変換
 records = json_to_seqrecords(json_file)
-# BioPythonの機能を使ってGenBank形式に変換
+# BioPython の機能を使って GenBank 形式に変換
 with open(output_file, "w") as f:
     SeqIO.write(records, f, "genbank")
 
-# JSONファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
+# JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
 from mss_tools.json_utils import get_feature_json
 data = get_feature_json(json_file, feature_id)
 json_data = json.dumps(data)
 
-# JSONファイルから各種FASTAファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
+# JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
 # 未実装
 # from mss_tools import mss_json2fasta
 # mss_json2fasta(json_file, out_fasta_file, format)
 
 ```
 
-その他、`mss_tools.MSS.MSS` にMSS登録ファイル情報を格納するクラス、`mss_tools.json_utils` にJSONデータを扱うための関数を定義している。
+その他、`mss_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス、`mss_tools.json_utils` に JSON データを扱うための関数を定義している。
 
 
 
