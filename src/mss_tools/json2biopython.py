@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
+import json
+import re
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
+
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqFeature import SeqFeature, FeatureLocation, Reference
 from Bio.SeqFeature import Location
 from Bio.Data.CodonTable import TranslationError
-import json
-from typing import Dict, List, Any, Optional
-import re
-from datetime import datetime
 
+
+logger = logging.getLogger(__name__)
 
 def collect_metadata(json_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -154,11 +158,11 @@ def create_definition(ff_definition, **kwargs):
     # 正規表現で@@[ ]@@を検索し、置換処理を行う
     return re.sub(r'@@\[(.*?)\]@@', replacer, ff_definition)
 
-def create_feature(feature_type: str, location: str, qualifiers: Dict[str, List[Any]], seq_length: int, topology: str) -> SeqFeature:
+def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, List[str]], seq_length: int, topology: str) -> SeqFeature:
     """
     featureの情報からBioPythonのSeqFeatureオブジェクトを作成する
     """
-    circular = topology == "circular"
+    circular = topology == "circular"  # topoloygyがcircularの場合、true
     feature_location = Location.fromstring(location, length=seq_length, circular=circular)
     
     # qualifiersの変換
@@ -248,17 +252,23 @@ def set_date(record: SeqRecord, date: Optional[str] = None):
         date = datetime.now().strftime("%d-%b-%Y").upper()
     record.annotations["date"] = date
 
-def add_translate_qualifier(feature: SeqFeature, seq: Seq):
+def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     """
     CDS featureにtranslation qualifierを追加する
 
     transl_exceptの処理を追加
-    (pos:5272379..5272381,aa:Sec)
-    Sec: U, Pyl: O
+    記載例: (pos:5272379..5272381,aa:Sec)
+    現状では Sec: U, Pyl: O にのみ対応している
+    aaにTERMが記載されている場合や1つのSeqFeatureに複数のtransl_exceptが記載されている場合、未実装
     """
-    def _parse_transl_except(text):
+    def _parse_transl_except(transl_except_value: str) -> Tuple[int, int, str]:
+        """
+        transl_exceptの開始位置、終了位置、翻訳後のアミノ酸を取得する
+        開始位置、終了位置は0-based
+
+        """
         pattern = r'\(pos:(?:complement\()?(\d+)\.\.(\d+)(?:\))?,aa:(\w+)\)'
-        match = re.search(pattern, text)
+        match = re.search(pattern, transl_except_value)
         
         if match:
             start = match.group(1)
@@ -266,55 +276,60 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq):
             aa = match.group(3)
             return int(start) - 1, int(end), aa
         else:
-            raise ValueError(f"Invalid transl_except format: {text}")
+            raise ValueError(f"Invalid transl_except format: {transl_except_value}")
 
-    def try_translate(seq, feature):
+    def try_translate(feature: SeqFeature, seq: Seq) -> Seq:
+        """
+        BiopythonのSeqFeature.translate()を試し、codon_startとcodon_tableを考慮してCDSを翻訳する
+        デフォルトでは cds=True が指定されており、開始コドンが ATG 以外の場合も M に置換される
+        partial locationの場合はエラーが発生するので、エラーが発生した場合は cds=Falseを考慮して翻訳する
+        """
         try:
-            # translation = feature.extract(seq).translate()
             return feature.translate(seq)
-            return translation
         except TranslationError as e:
             try:
-                start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
+                # start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
                 # table = int(feature.qualifiers.get("transl_table", [1])[0])
-                # cds = feature.location.extract(seq)
-                # cds.translate(
                 return feature.translate(seq, cds=False).rstrip("*")
-                    # table=table, cds=False, to_stop=False, start=start_offset)
             except TranslationError as e:
-                print(e)
-                print(f"TranslationError: {feature}")
+                logger.warning("TranslationError: Cannot translate the feature", feature.id)
+                logger.warning(feature)
+                return None
+    dict_aa = {"Sec": "U", "Pyl": "O"} # {"TERM": "*"}  # TERM not implemented
 
-    dict_aa = {"Sec": "U", "Pyl": "O", "TERM": "*"}  # TERM not implemented
+    # transl_except が記載されている場合、その箇所を @@@ に置換して CDS を切り出し、
+    # CDS とアミノ酸配列中での位置を確認しておく
+    # translate 実行前に @@@ をNNNに置換しておくと該当箇所は X に翻訳されるので、翻訳後にアミノ酸を置換する
     if "transl_except" in feature.qualifiers:
         transl_except = feature.qualifiers["transl_except"]
         if len(transl_except) > 1:
             raise ValueError("Multiple transl_except qualifiers are not supported")
         transl_except = transl_except[0]
         start, end, aa = _parse_transl_except(transl_except)
+        assert aa in dict_aa
         seq = seq[:start] + Seq("@@@") + seq[end:]  # replace the amino acid with @@@
         cds = feature.location.extract(seq)
         start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
+
+         # CDSとアミノ酸配列中でのtranl_exceptの開始位置 (0-based)
         except_index_nuc = cds.index("@@@")
         except_index_aa = (except_index_nuc - start_offset) // 3
-        print(except_index_nuc, except_index_aa)
-        print(feature.qualifiers)
-        print(cds[except_index_nuc:except_index_nuc+3])
-        # print(cds)
-        cds = cds.replace("@@@", "NNN")
-        transl_table = feature.qualifiers.get("transl_table", [1])[0]
-        # translation = cds.translate(cds=True, table=11)
+
+        # print(except_index_nuc, except_index_aa)
+        # print(feature.qualifiers)
+        # print(cds[except_index_nuc:except_index_nuc+3])
         seq = seq.replace("@@@", "NNN")
 
-    translation = try_translate(seq, feature)
+    translation = try_translate(feature, seq)
 
     if "transl_except" in feature.qualifiers:
-        print(translation[except_index_aa])
+        assert translation[except_index_aa] == "X"
         translation = translation[:except_index_aa] + dict_aa[aa] + translation[except_index_aa+1:]
 
-    feature.qualifiers["translation"] = [str(translation)]
+    if translation:
+        feature.qualifiers["translation"] = [str(translation)]
 
-def json_to_seqrecord(json_data: Dict) -> List[SeqRecord]:
+def json_to_seqrecords(json_data: Dict) -> List[SeqRecord]:
     """
     JSONデータをBioPythonのSeqRecordオブジェクトのリストに変換する
     """
@@ -396,7 +411,7 @@ def json_to_seqrecord(json_data: Dict) -> List[SeqRecord]:
                 # COMMON_SOURCEの内容とマージ
                 qualifiers = {k: [v] for k, v in common_source.items()}
                 qualifiers.update(feature_data["qualifiers"])
-                feature = create_feature(
+                feature = create_seqfeature(
                     "source",
                     feature_data["location"],
                     qualifiers,
@@ -410,7 +425,7 @@ def json_to_seqrecord(json_data: Dict) -> List[SeqRecord]:
                 record.description = definition
             else:
                 # source feature以外のfeatureを作成
-                feature = create_feature(
+                feature = create_seqfeature(
                     feature_data["type"],
                     feature_data["location"],
                     feature_data["qualifiers"],
@@ -434,18 +449,34 @@ def json_to_seqrecord(json_data: Dict) -> List[SeqRecord]:
 
 
 
-def main():
-    import sys
+def json2gbk_main():
+    """
+    JSONファイルをGenBankファイルに変換する
+    出力 (-o, --output_file) が指定されていない場合は、標準出力に出力する
+    """
 
-    input_file = sys.argv[1]
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+    import sys
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Convert JSON file to GenBank file')
+    parser.add_argument('input_file', type=str, help='Input JSON file')
+    parser.add_argument('-o', '--output_file', type=str, help='Output GenBank file', default=None)
+
+    if len(sys.argv) == 1:
+        parser.print_help()
+        sys.exit(1)
+    
+    args = parser.parse_args()
+    input_file = args.input_file
+    output_file = args.output_file
+
     # JSONファイルの読み込み
     with open(input_file) as f:
     # with open("draft_genome.json") as f:
         json_data = json.load(f)
     
     # JSONデータをSeqRecordに変換
-    records = json_to_seqrecord(json_data)
+    records = json_to_seqrecords(json_data)
     
     # GenBank形式で出力
     if output_file:
@@ -455,5 +486,5 @@ def main():
         for r in records:
             print(r.format("genbank"))
 
-if __name__ == "__main__":
-    main() 
+# if __name__ == "__main__":
+#     json2gbk_main() 

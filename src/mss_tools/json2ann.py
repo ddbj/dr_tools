@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 from mss_tools.MSS import MSS
 
-def json2ann(mss_json_file: Path, out_dir: Path|str|None, out_prefix: str|None) -> None:
+def json2ann(mss_json_file: Path, out_dir: Path|str|None=None, out_prefix: str|None=None) -> None:
     """
     jsonファイルからMSSオブジェクトを生成し、そのMSSオブジェクトを使ってMSS登録ファイルを出力する
     out_prefixが指定されていない場合、自動で出力ファイル名を生成する

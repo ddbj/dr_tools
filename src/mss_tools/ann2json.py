@@ -7,7 +7,7 @@ from mss_tools.MSS import MSS
 
 DATA_MODEL_VERSION = "0.1"
 
-def common_to_dict(mss):
+def common_to_dict(mss: MSS) -> dict:
     # COMMON entryの情報を取得して辞書で返す
     qualifiers_with_multi_values = ["line", "ab_name", "keyword", "sequence read archive"]
     features_with_multi_values = ["COMMENT", "REFERENCE"]
