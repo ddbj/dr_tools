@@ -5,7 +5,7 @@ Python module for handling MSS format and its json data model
 
 ```
 # installation
-pip install "git+https://github.com/ddbj/mss_tools.git#egg=パッケージ名[dev]"
+pip install "git+https://github.com/ddbj/mss_tools.git"
 ```
 
 ## Usage
