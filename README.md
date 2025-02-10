@@ -39,12 +39,8 @@ with open("out.gbk", "w") as f:
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
 from mss_tools.json_utils import get_feature_json
 data = get_feature_json("dfast_results.json", "feature_11")
-json_data = json.dumps(data)
 # 出力例:
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-TypeError: 'indent' is an invalid keyword argument for print()
->>> print(json.dumps(data, indent=2))
+print(json.dumps(data, indent=2))
 {
   "id": "feature_11",
   "type": "CDS",
