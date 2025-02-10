@@ -27,6 +27,8 @@ mss_hello = "mss_tools:hello"
 mss_ann2json = "mss_tools.ann2json:main"
 mss_json2ann = "mss_tools.json2ann:main"
 mss_json2gbk = "mss_tools.json2biopython:json2gbk_main"
+mss_json2fasta = "mss_tools.json2fasta:json2fasta_main"
+
 
 [project.urls]
 "Homepage" = "https://github.com/ddbj/mss_tools"

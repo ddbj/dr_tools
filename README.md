@@ -15,7 +15,7 @@ Requirements:
 
 ## Usage
 ```
-from mss_tools import mss_ann2json, mss_json2ann, mss_json2gbk, json_to_seqrecords
+from mss_tools import mss_ann2json, mss_json2ann, json_to_seqrecords, mss_json2fasta
 
 # DFAST が生成した MSS 登録ファイル (ann, seq) を DFAST results JSON に変換
 # DFAST 以外の MSS 登録ファイルにも今後対応予定
@@ -28,12 +28,18 @@ mss_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "dfa
 mss_json2ann("examples/complete_genome.json", "OUTPUT", "DDBJ-MSS")
 
 
-# JSON ァイルから BioPython の SeqRecord オブジェクトに変換
+# JSON ァイルから BioPython の SeqRecord オブジェクトに変換 (List[SeqRecord])
 records = json_to_seqrecords("examples/complete_genome.json")
 # BioPython の機能を使って GenBank 形式に変換
 from Bio import SeqIO
 with open("out.gbk", "w") as f:
     SeqIO.write(records, f, "genbank")
+
+
+# JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
+# 出力ファイル名: genome.fna, cds.fna, misc_rnas.fna, protein.faa
+mss_json2fasta("dfast_results.json", "out_dir")
+
 
 # JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
@@ -56,15 +62,9 @@ print(json.dumps(data, indent=2))
     "locus_tag": ["PLH_00020"]
   },
   "locus_tag_id": "00020",
-  "nucleotide": "ATGATGAGATGA",
-  "translation": "MFH...."
+  "nucleotide": "ATGA...",
+  "translation": "MKFT..."
 }
-
-# JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
-# 未実装
-# from mss_tools import mss_json2fasta
-# mss_json2fasta(json_file, out_fasta_file, format)
-
 ```
 
 その他、`mss_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス、`mss_tools.json_utils` に JSON データを扱うための関数を定義している。

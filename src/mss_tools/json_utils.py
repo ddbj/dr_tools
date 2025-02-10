@@ -52,9 +52,11 @@ def set_locus_tag(feature_json: Dict, locus_tag_prefix: str) -> None:
     """
     feature_jsonにlocus_tagを設定する
     locus_tag_prefixとfeatureのlocus_tag_idを結合した文字列をlocus_tagとして設定する
+    locus_tag_id を持たない場合は、locus_tagを設定しない
     """
-    locus_tag = locus_tag_prefix + "_" + feature_json["locus_tag_id"]
-    feature_json["qualifiers"]["locus_tag"] = [locus_tag]
+    if "locus_tag_id" in feature_json:
+        locus_tag = locus_tag_prefix + "_" + feature_json["locus_tag_id"]
+        feature_json["qualifiers"]["locus_tag"] = [locus_tag]
 
 
 def json_to_seqfeature(feature_json: Dict, entry_json: Dict) -> SeqFeature:
