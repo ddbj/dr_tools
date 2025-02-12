@@ -15,7 +15,7 @@ Requirements:
 
 ## Usage
 ```
-from mss_tools import mss_ann2json, mss_json2ann, json_to_seqrecords, mss_json2fasta
+from mss_tools import mss_ann2json, mss_json2ann, json_to_seqrecords, mss_json2fasta, mss_json2stats
 
 # DFAST が生成した MSS 登録ファイル (ann, seq) を DFAST results JSON に変換
 # DFAST 以外の MSS 登録ファイルにも今後対応予定
@@ -39,6 +39,12 @@ with open("out.gbk", "w") as f:
 # JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
 # 出力ファイル名: genome.fna, cds.fna, misc_rnas.fna, protein.faa
 mss_json2fasta("dfast_results.json", "out_dir")
+
+# JSON ファイルからゲノムサイズ、遺伝子数等の統計情報を取得し JSON で保存
+# format=Falaseの場合、数値として保存
+# output_fileを指定しない場合、辞書を返す
+# keyはDFAST webのUIで表示するときと同じ名称
+mss_json2stats("complete_genome.json", format=True, output_file="genome_stats.json")
 
 
 # JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
@@ -76,6 +82,8 @@ print(json.dumps(data, indent=2))
 mss_ann2json [-o out.json] input_mss_file.ann input_mss_file.fa
 mss_json2ann [-O out_dir] [-o out_prefix] input_file.json
 mss_json2gbk [-o out.gbk] input_file.json
+mss_json2fasta [-O out_dir] input_file.json
+mss_json2stats_for_dfast [-o out.json] [-f] input_file.json
 ```
 
 

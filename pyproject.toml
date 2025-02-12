@@ -28,6 +28,7 @@ mss_ann2json = "mss_tools.ann2json:main"
 mss_json2ann = "mss_tools.json2ann:main"
 mss_json2gbk = "mss_tools.json2biopython:json2gbk_main"
 mss_json2fasta = "mss_tools.json2fasta:json2fasta_main"
+mss_json2stats_for_dfast = "mss_tools.json2stats:json2stats_for_dfast_main"
 
 
 [project.urls]
