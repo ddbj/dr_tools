@@ -171,7 +171,7 @@ class MSS:
         
         with open(self.seq_file, "r") as f:
             entries = f.read()
-            entries = entries.replace("/", "") # remove trailing slash (// in DDBJ format)
+            entries = entries.replace("//\n", "") # remove trailing slash (// in DDBJ format)
             entries = entries.split(">")
             entries = entries[1:]  # remove the first empty entry
             for entry in entries:
