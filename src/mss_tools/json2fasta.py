@@ -23,7 +23,7 @@ def json_to_gene_seq(feature_json: Dict, entry_json: Dict) -> Tuple[str, str, st
         translate = ""
     nucleotide = str(nucleotide).upper()
     if gene:
-        description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_json["name"]}:{location}]"
+        description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_json['name']}:{location}]"
     else:
         description = f"{locus_tag} {product} [type={feature_type}] [location={entry_json["name"]}:{location}]"
     return description, nucleotide, translate
