@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from mss_tools.MSS import MSS
+from dr_tools.MSS import MSS
 
 DATA_MODEL_VERSION = "0.1"
 
@@ -115,9 +115,9 @@ def infer_meta_from_ann(mss):
 
     dfast_version = _get_dfast_version(mss.entries)
     if dfast_version:
-        common_meta = {"dfast_version": dfast_version, "division": "BCT"}
+        common_meta = {"dfast_version": dfast_version, "division": "BCT"} # For DFAST, the division is always BCT
     else:
-        common_meta = {"division": "BCT"}  # For DFAST, the division is always BCT
+        common_meta = {"division": "UNK"}  
 
     # trad_submission_category (WGS, GNM) かの判定
     # COMMON entryのDATATYPE featureのtypeがWGSであればWGSとする
@@ -199,7 +199,7 @@ def make_entry_dict(mss, seq_info):
     return {"ENTRIES": L}
 
 
-def ann2json_for_dfast(ann_file: Path, seq_file: Path, out_json_file: Path=None) -> None:
+def ann2json_for_dfast(ann_file: Path, seq_file: Path, out_json_file: Path=None, division: str|None=None) -> None:
     """
     DFAST が生成する ann ファイルと seq ファイルを読み込み、json形式のファイルに変換する
 
@@ -218,6 +218,9 @@ def ann2json_for_dfast(ann_file: Path, seq_file: Path, out_json_file: Path=None)
     common_meta, seq_info = infer_meta_from_ann(mss)
     trad_submission_category = common_meta["COMMON_META"].pop("trad_submission_category")
     common_dict["COMMON"]["trad_submission_category"] = trad_submission_category
+    if division:
+        # divisionが指定されていれば変更 (デフォルトでは UNK)
+        common_meta["COMMON_META"]["division"] = division
 
     dict_entry = make_entry_dict(mss, seq_info)
 
@@ -243,6 +246,7 @@ def main():
     argparser.add_argument('ann_file', type=str, help='MSS Annotation file')
     argparser.add_argument('seq_file', type=str, help='MSS Sequence file')
     argparser.add_argument('-o', '--out_json_file', type=str, help='Output json file. If not specified, output will written to stdout.', default=None)
+    argparser.add_argument('-d', '--division', type=str, help='Division. Default is BCT for DFAST result or UNK', default=None)
 
     if len(sys.argv) == 1:
         argparser.print_help()
@@ -255,7 +259,7 @@ def main():
     out_json_file = args.out_json_file
 
     logging.info(f"ann_file: {ann_file}, seq_file: {seq_file}, out_json_file: {out_json_file}")
-    ann2json_for_dfast(ann_file, seq_file, out_json_file)
+    ann2json_for_dfast(ann_file, seq_file, out_json_file, division=args.division)
 
 if __name__ == "__main__":
     main()

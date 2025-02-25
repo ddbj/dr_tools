@@ -4,7 +4,7 @@ services:
   python-dev:
     build: .
     volumes:
-      - .:/mss_tools
-    working_dir: /mss_tools
+      - .:/dr_tools
+    working_dir: /dr_tools
     tty: true
     command: /bin/bash

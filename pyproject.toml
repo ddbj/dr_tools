@@ -1,8 +1,8 @@
 [project]
-name = "mss_tools"
+name = "dr_tools"
 version = "0.0.1"
 authors = [{ name="nigyta", email="yt@nig.ac.jp" }]
-description = "Utility tools for handling DDBJ MSS and its json data model"
+description = "Utility tools for handling DFAST Record JSON and DDBJ MSS Files"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -23,14 +23,14 @@ dev = [
 
 
 [project.scripts]
-mss_hello = "mss_tools:hello"
-mss_ann2json = "mss_tools.ann2json:main"
-mss_json2ann = "mss_tools.json2ann:main"
-mss_json2gbk = "mss_tools.json2biopython:json2gbk_main"
-mss_json2fasta = "mss_tools.json2fasta:json2fasta_main"
-mss_json2stats_for_dfast = "mss_tools.json2stats:json2stats_for_dfast_main"
+drt_hello = "dr_tools:hello"
+drt_ann2json = "dr_tools.ann2json:main"
+drt_json2ann = "dr_tools.json2ann:main"
+drt_json2gbk = "dr_tools.json2biopython:json2gbk_main"
+drt_json2fasta = "dr_tools.json2fasta:json2fasta_main"
+drt_json2stats_for_dfast = "dr_tools.json2stats:json2stats_for_dfast_main"
 
 
 [project.urls]
-"Homepage" = "https://github.com/ddbj/mss_tools"
-"Bug Tracker" = "https://github.com/ddbj/mss_tools/issues"
+"Homepage" = "https://github.com/ddbj/dr_tools"
+"Bug Tracker" = "https://github.com/ddbj/dr_tools/issues"

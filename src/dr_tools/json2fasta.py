@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 from typing import Dict, Tuple
 
-from mss_tools.json2biopython import create_seqfeature
-from mss_tools.json_utils import json_to_seqfeature, get_locus_tag_prefix, set_locus_tag
+from dr_tools.json2biopython import create_seqfeature
+from dr_tools.json_utils import json_to_seqfeature, get_locus_tag_prefix, set_locus_tag
 
 def json_to_gene_seq(feature_json: Dict, entry_json: Dict) -> Tuple[str, str, str]:
     """

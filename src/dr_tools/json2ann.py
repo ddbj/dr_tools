@@ -1,7 +1,7 @@
 import sys
 import argparse
 from pathlib import Path
-from mss_tools.MSS import MSS
+from dr_tools.MSS import MSS
 
 def json2ann(mss_json_file: Path, out_dir: Path|str|None=None, out_prefix: str|None=None) -> None:
     """

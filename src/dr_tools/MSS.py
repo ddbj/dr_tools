@@ -75,6 +75,8 @@ class Feature:
                     tsv.append(["", "", "", key, value])
         # location がある場合はlocationを追加 (MSSファイルではlocationを持たないfeatureもある e.g. TOPOLOGYやDDBJ登録に関するもの)
         if self.location:
+            if len(tsv) == 0:
+                tsv.append(["", "", "", "", ""])  # qualifierを持たないfeatureがある (UTR等)。その場合は空行を追加
             tsv[0][2] = self.location
         tsv[0][1] = self.type
         return tsv

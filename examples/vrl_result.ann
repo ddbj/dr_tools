@@ -1,0 +1,124 @@
+COMMON	SUBMITTER		ab_name	Fujisawa,T.
+			ab_name	Tanizawa,Y.
+			ab_name	Suzuki,Y.
+			ab_name	Tanaka,M.
+			consrtm	Shizuoka Pref. Consortium for Covid19
+			contact	Masanori Arita
+			email	mss@ddbj.nig.ac.jp
+			url	https://ddbj.nig.ac.jp
+			institute	National Institute of Genetics
+			department	DNA Data Bank of Japan
+			country	Japan
+			state	Shizuoka
+			city	Mishima
+			street	1111 Yata
+			zip	411-8540
+	REFERENCE		title	Complete genome sequence of Severe acute respiratory syndrome coronavirus 2 isolate XXXXXX
+			ab_name	Tanizawa,Y.
+			ab_name	Suzuki,Y.
+			ab_name	Tanaka,M.
+			status	Unpublished
+			year	2021
+	COMMENT		line	Sequenced and annotated at NIG
+	ST_COMMENT		tagset_id	Genome-Assembly-Data
+			Assembly Method	META_VRL v0.0.1
+			Genome Coverage	2000x
+			Sequencing Technology	Illumina MiSeq
+SZ-NIG-Y21135	source	1..29795	organism	Severe acute respiratory syndrome coronavirus 2
+			isolate	hCov-19/Japan/SZ-NIG-12345/2021
+			mol_type	genomic RNA
+			ff_definition	@@[organism]@@ @@[isolate]@@ RNA, complete genome
+			isolation_source	pharyngeal swab
+			host	Homo sapiens
+			collection_date	2021-03-20
+			geo_loc_name	
+	5'UTR	1..250		
+	CDS	join(251..13444,13444..21531)	product	ORF1ab polyprotein
+			codon_start	1
+			gene	ORF1ab
+			transl_table	1
+			ribosomal_slippage	
+	CDS	251..13459	product	ORF1a polyprotein
+			codon_start	1
+			gene	ORF1ab
+			transl_table	1
+	mat_peptide	251..790	product	leader protein
+			gene	ORF1ab
+	mat_peptide	791..2704	product	nsp2
+			gene	ORF1ab
+	mat_peptide	2705..8539	product	nsp3
+			gene	ORF1ab
+	mat_peptide	8540..10039	product	nsp4
+			gene	ORF1ab
+	mat_peptide	10040..10957	product	3C-like proteinase
+			gene	ORF1ab
+	mat_peptide	10958..11818	product	nsp6
+			gene	ORF1ab
+	mat_peptide	11819..12067	product	nsp7
+			gene	ORF1ab
+	mat_peptide	12068..12661	product	nsp8
+			gene	ORF1ab
+	mat_peptide	12662..13000	product	nsp9
+			gene	ORF1ab
+	mat_peptide	13001..13417	product	nsp10
+			gene	ORF1ab
+	mat_peptide	join(13418..13444,13444..16212)	product	RNA-dependent RNA polymerase
+			gene	ORF1ab
+	mat_peptide	13418..13456	product	nsp11
+			gene	ORF1ab
+	stem_loop	13452..13479	gene	ORF1ab
+			note	Coronavirus frameshifting stimulation element stem-loop 1
+	stem_loop	13464..13518	gene	ORF1ab
+			note	Coronavirus frameshifting stimulation element stem-loop 2
+	mat_peptide	16213..18015	product	helicase
+			gene	ORF1ab
+	mat_peptide	18016..19596	product	3'-to-5' exonuclease
+			gene	ORF1ab
+	mat_peptide	19597..20634	product	endoRNAse
+			gene	ORF1ab
+	mat_peptide	20635..21528	product	2'-O-ribose methyltransferase
+			gene	ORF1ab
+	CDS	21539..25351	product	surface glycoprotein
+			codon_start	1
+			gene	S
+			transl_table	1
+	CDS	25360..26187	product	ORF3a protein
+			codon_start	1
+			gene	ORF3a
+			transl_table	1
+	CDS	26212..26439	product	envelope protein
+			codon_start	1
+			gene	E
+			transl_table	1
+	CDS	26490..27158	product	membrane glycoprotein
+			codon_start	1
+			gene	M
+			transl_table	1
+	CDS	27169..27354	product	ORF6 protein
+			codon_start	1
+			gene	ORF6
+			transl_table	1
+	misc_feature	27361..27726	gene	ORF7a
+			note	similar to CDS of ORF7a protein
+			note	internal stop at 27645
+	CDS	27723..27854	product	ORF7b
+			codon_start	1
+			gene	ORF7b
+			transl_table	1
+	misc_feature	27861..28226	gene	ORF8
+			note	similar to CDS of ORF8 protein
+			note	internal stop at 27941
+	CDS	28240..29499	product	nucleocapsid phosphoprotein
+			codon_start	1
+			gene	N
+			transl_table	1
+	CDS	29524..29640	product	ORF10 protein
+			codon_start	1
+			gene	ORF10
+			transl_table	1
+	stem_loop	29575..29610	gene	ORF10
+			note	Coronavirus 3' UTR pseudoknot stem-loop 1
+	stem_loop	29595..29623	gene	ORF10
+			note	Coronavirus 3' UTR pseudoknot stem-loop 2
+	stem_loop	29694..29734	note	Coronavirus 3' stem-loop II-like motif (s2m)
+	3'UTR	29641..29795		

@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 from pathlib import Path
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
-from mss_tools.json2biopython import create_seqfeature, add_translate_qualifier
+from dr_tools.json2biopython import create_seqfeature, add_translate_qualifier
 
 def test():
     json_file = "examples/ecoli_example.json"
