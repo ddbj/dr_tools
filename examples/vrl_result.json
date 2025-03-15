@@ -1,0 +1,589 @@
+{
+    "schema_version": "0.1",
+    "COMMON": {
+        "SUBMITTER": {
+            "ab_name": [
+                "Fujisawa,T.",
+                "Mori,H.",
+                "Tanizawa,Y.",
+                "Nakamura,Y.",
+                "Arita,M."
+            ],
+            "consrtm": "Shizuoka Pref. Consortium for Covid19",
+            "contact": "Masanori Arita",
+            "email": "mss@ddbj.nig.ac.jp",
+            "url": "https://ddbj.nig.ac.jp",
+            "institute": "National Institute of Genetics",
+            "department": "DNA Data Bank of Japan",
+            "country": "Japan",
+            "state": "Shizuoka",
+            "city": "Mishima",
+            "street": "1111 Yata",
+            "zip": "411-8540"
+        },
+        "REFERENCE": [
+            {
+                "title": "Complete genome sequence of Severe acute respiratory syndrome coronavirus 2 isolate XXXXXX",
+                "ab_name": [
+                    "Fujisawa,T.",
+                    "Mori,H.",
+                    "Tanizawa,Y.",
+                    "Nakamura,Y.",
+                    "Arita,M."
+                ],
+                "status": "Unpublished",
+                "year": "2021"
+            }
+        ],
+        "COMMENT": [
+            {
+                "line": [
+                    "Sequenced and annotated at NIG"
+                ]
+            }
+        ],
+        "ST_COMMENT": {
+            "tagset_id": "Assembly-Data",
+            "Assembly Method": "META_VRL v0.0.1",
+            "Coverage": "2000x",
+            "Sequencing Technology": "Illumina MiSeq"
+        },
+        "trad_submission_category": "GNM"
+    },
+    "COMMON_SOURCE": {
+        "organism": "Severe acute respiratory syndrome coronavirus 2",
+        "isolate": "hCov-19/Japan/SZ-NIG-12345/2021",
+        "mol_type": "genomic RNA",
+        "isolation_source": "pharyngeal swab",
+        "host": "Homo sapiens",
+        "collection_date": "2021-03-20",
+        "geo_loc_name": ""
+    },
+    "COMMON_META": {
+        "division": "VRL"
+    },
+    "ENTRIES": [
+        {
+            "id": "SZ-NIG-Y21135",
+            "name": "SZ-NIG-Y21135",
+            "type": "chromosome",
+            "topology": "linear",
+            "sequence": "cttcccaggtaacaaaccaaccaactttcgatctcttgtagatctgttctctaaacgaactttaaaatctgtgtggctgtcactcggctgcatgcttagtgcactcacgcagtataattaataactaattactgtcgttgacaggacacgagtaactcgtctatcttctgcaggctgcttacggtttcgtccgtgttgcagccgatcatcagcacatctaggttttgtccgggtgtgaccgaaaggtaagatggagagccttgtccctggtttcaacgagaaaacacacgtccaactcagtttgcctgttttacaggttcgcgacgtgctcgtacgtggctttggagactccgtggaggaggtcttatcagaggcacgtcaacatcttaaagatggcacttgtggcttagtagaagttgaaaaaggcgttttgcctcaacttgaacagccctatgtgttcatcaaacgttcggatgctcgaactgcacctcatggtcatgttatggttgagctggtagcagaactcgaaggcattcagtacggtcgtagtggtgagacacttggtgtccttgtccctcatgtgggcgaaataccagtggcttaccgcaaggttcttcttcgtaagaacggtaataaaggagctggtggccatagttacggcgccgatctaaagtcatttgacttaggcgacgagcttggcactgatccttatgaagattttcaagaaaactggaacactaaacatagcagtggtgttacccgtgaactcatgcgtgagcttaacggaggggcatacactcgctatgtcgataacaacttctgtggccctgatggctaccctcttgagtgcattaaagaccttctagcacgtgctggtaaagcttcatgcactttgtctgaacaactggactttattgacactaagaggggtgtatactgctgccgtgaacatgagcatgaaattgcttggtacacggaacgttctgaaaagagctatgaattgcagacaccttttgaaattaaattggcaaagaaatttgacaccttcaatggggaatgtccaaattttgtatttcccttaaattccataatcaagactattcaaccaagggttgaaaagaaaaagcttgatggctttatgggtagaattcgatctgtctatccagttgcgtcaccaaatgaatgcaaccaaatgtgcctttcaactctcatgaagtgtgatcattgtggtgaaacttcatggcagacgggcgattttgttaaagccacttgcgaattttgtggcactgagaatttgactaaagaaggtgccactacttgtggttacttaccccaaaatgctgttgttaaaatttattgtccagcatgtcacaattcagaagtaggacctgagcatagtcttgccgaataccataatgaatctggcttgaaaaccattcttcgtaagggtggtcgcactattgcctttggaggctgtgtgttctcttatgttggttgccataacaagtgtgcctattgggttccacgtgctagcgctaacataggttgtaaccatacaggtgttgttggagaaggttccgaaggtcttaatgacaaccttcttgaaatactccaaaaagagaaagtcaacatcaatattgttggtgactttaaacttaatgaagagatcgccattattttggcatctttttctgcttccacaagtgcttttgtggaaactgtgaaaggtttggattataaagcattcaaacaaattgttgaatcctgtggtaattttaaagttacaaaaggaaaagctaaaaaaggtgcctggaatattggtgaacagaaatcaatactgagtcctctttatgcatttgcatcagaggctgctcgtgttgtacgatcaattttctcccgcactcttgaaactgctcaaaattctgtgcgtgttttacagaaggccgctataacaatactagatggaatttcacagtattcactgagactcattgatgctatgatgttcacatctgatttggctactaacaatttagttgtaatggcctacattacaggtggtgttgttcagttgacttcgcagtggctaactaacatctttggcactgtttatgaaaaactcaaacccgttcttgattggcttgaagagaagtttaaggaaggtgtagagtttcttagagacggttgggaaattgttaaatttatctcaacctgtgcttgtgaaattgtcggtggacaaattgtcacctgtgcaaaggaaattaaggagagtgttcagacattctttaagcttgtaaataaatttttggctttgtgtgctgactctatcattattggtggagctaaacttaaagccttgaatttaggtgaaacatttgtcacgcactcaaagggattgtacagaaagtgtgttaaatccagagaagaaactggcctactcatgcctctaaaagccccaaaagaaattatcttcttagagggagaaacacttcccacagaagtgttaacagaggaagttgtcttgaaaactggtgatttacaaccattagaacaacctactagtgaagctgttgaagctccattggttggtacaccagtttgtattaacgggcttatgttgctcgaaatcaaagacacagaaaagtactgtgcccttgcacctaatatgatggtaacaaacaataccttcacactcaaaggcggtgcaccaacaaaggttacttttggtgatgacactgtgatagaagtgcaaggttacaagagtgtgaatatcacttttgaacttgatgaaaggattgataaagtacttaatgagaagtgctctgcctatacagttgaactcggtacagaagtaaatgagttcgcctgtgttgtggcagatgctgtcataaaaactttgcaaccagtatctgaattacttacaccactgggcattgatttagatgagtggagtatggctacatactacttatttgatgagtctggtgagtttaaattggcttcacatatgtattgttctttttaccctccagatgaggatgaagaagaaggtgattgtgaagaagaagagtttgagccatcaactcaatatgagtatggtactgaagatgattaccaaggtaaacctttggaatttggtgccacttctgctgctcttcaacctgaagaagagcaagaagaagattggttagatgatgatagtcaacaaactgttggtcaacaagacggcagtgaggacaatcagacaactattattcaaacaattgttgaggttcaacctcaattagagatggaacttacaccagttgttcagactattgaagtgaatagttttagtggttatttaaaacttactgacaatgtatacattaaaaatgcagacattgtggaagaagctaaaaaggtaaaaccaacagtggttgttaatgcagccaatgtttaccttaaacatggaggaggtgttgcaggagccttaaataaggctactaacaatgccatgcaagttgaatctgatgattacatagctactaatggaccacttaaagtgggtggtagttgtgttttaagcggacacaatcttgctaaacactgtcttcatgttgtcggcccaaatgttaacaaaggtgaagacattcaacttcttaagagtgcttatgaaaattttaatcagcacgaagttctacttgcaccattattatcagctggtatttttggtgctgaccctatacattctttaagagtttgtgtagatactgttcgcacaaatgtctacttagctgtctttgataaaaatctctatgacaaacttgtttcaagctttttggaaatgaagagtgaaaagcaagttgaacaaaagatcgctgagattcctaaagaggaagttaagccatttataactgaaagtaaaccttcagttgaacagagaaaacaagatgataagaaaatcaaagcttgtgttgaagaagttacaacaactctggaagaaactaagttcctcacagaaaacttgttactttatattgacattaatggcaatcttcatccagattctgccactcttgttagtgacattgacatcactttcttaaagaaagatgctccatatatagtgggtgatgttgttcaagagggtgttttaactgctgtggttatacctactaaaaaggctggtggcactactgaaatgctagcgaaagctttgagaaaagtgccaacagacaattatataaccacttacccgggtcagggtttaaatggttacactgtagaggaggcaaagacagtgcttaaaaagtgtaaaagtgccttttacattctaccatctattatctctaatgagaagcaagaaattcttggaactgtttcttggaatttgcgagaaatgcttgcacatgcagaagaaacacgcaaattaatgcctgtctgtgtggaaactaaagccatagtttcaactatacagcgtaaatataagggtattaaaatacaagagggtgtggttgattatggtgctagattttacttttacaccagtaaaacaactgtagcgtcacttatcaacacacttaacgatctaaatgaaactcttgttacaatgccacttggctatgtaacacatggcttaaatttggaagaagctgctcggtatatgagatctctcaaagtgccagctacagtttctgtttcttcacctgatgctgttacagcgtataatggttatcttacttcttcttctaaaacacctgaagaacattttattgaaaccatctcacttgctggttcctataaagattggtcctattctggacaatctacacaactaggtatagaatttcttaagagaggtgataaaagtgtatattacactagtaatcctaccacattccacctatatggtgaagttatcacctttgacaatcttaagacacttctttctttgagagaagtgaggactattaaggtgtttacaacagtagacaacattaacctccacacgcaagttgtggacatgtcaatgacatatggacaacagtttggtccaacttatttggatggagctgatgttactaaaataaaacctcataattcacatgaaggtaaaacattttatgttttacctaatgatgacactctacgtgttgaggcttttgagtactaccacacaactgatcctagttttctgggtaggtacatgtcagcattaaatcacactaaaaagtggaaatacccacaagttaatggtttaacttctattaaatgggcagataacaactgttatcttgccactgcattgttaacactccaacaaatagagttgaagtttaatccacctgctctacaagatgcttattacagagcaagggctggtgaagctgataacttttgtgcacttatcttagcctactgtaataagacagtaggtgagttaggtgatgttagagaaacaatgagttacttgtttcaacatgccaatttagattcttgcaaaagagtcttgaacgtggtgtgtaaaacttgtggacaacagcagacaacccttaagggtgtagaagctgttatgtacatgggcacactttcttatgaacaatttaagaaaggtgttcagataccttgtacgtgtggtaaacaagctacaaaatatctagtacaacaggagtcaccttttgttatgatgtcagcaccacctgctcagtatgaacttaagcatggtacatttacttgtgctagtgagtacactggtaattaccagtgtggtcactataaacatataacttctaaagaaactttgtattgcatagacggtgctttacttacaaagtcctcagaatacaaaggtcctattacggatgttttctacaaagaaaacagttacacaacaaccataaaaccagttacttataaattggatggtgttgtttgtacagaaattgaccctaagttggacaattattataagaaagacaattcttattttacagagcaaccaattgatcttgtaccaaaccaaccatatccaaacgcaagcttcgataattttaagtttgtatgtgataatatcaaatttgctgatgatttaaaccagttaactggttataagaaacctgcttcaagagagcttaaagttacatttttccctgacttaaatggtgatgtggtggctattgattataaacactacacaccctcttttaagaaaggagctaaattgttacataaacctattgtttggcatgttaacaatgcaactaataaagccacgtataaaccaaatacctggtgtatacgttgtctttggagcacaaaaccagttgaaacatcaaattcgtttgatgtactgaagtcagaggacgcgcagggaatggataatcttgcctgcgaagatctaaaaccagtctctgaagaagtagtggaaaatcctaccatacagaaagacgttcttgagtgtaatgtgaaaactaccgaagttgtaggagacattatacttaaaccagcaaataatagtttaaaaattacagaagaggttggccacacagatctaatggctgcttatgtagacaattctagtcttactattaagaaacctaatgaattatctagagtattaggtttgaaaacccttgctactcatggtttagctgctgttaatagtgtcccttgggatactatagctaattatgctaagccttttcttaacaaagttgttagtacaactactaacatagttacacggtgtttaaaccgtgtttgtactaattatatgccttatttctttactttattgctacaattgtgtacttttactagaagtacaaattctagaattaaagcatctatgccgactactatagcaaagaatactgttaagagtgtcggtaaattttgtctagaggcttcatttaattatttgaagtcacctaatttttctaaactgataaatattacaatttggtttttactattaagtgtttgcctaggttctttaatctactcaaccgctgctttaggtgttttaatgtctaatttaggcatgccttcttactgtactggttacagagaaggctatttgaactctactaatgtcactattgcaacctactgtactggttctataccttgtagtgtttgtcttagtggtttagattctttagacacctatccttctttagaaactatacaaattaccatttcatcttttaaatgggatttaactgcttttggcttagttgcagagtggtttttggcatatattcttttcactaggtttttctatgtacttggattggctgcaatcatgcaattgtttttcagctattttgcagtacattttattagtaattcttggcttatgtggttaataattaatcttgtacaaatggccccgatttcagctatggttagaatgtacatcttctttgcatcattttattatgtatggaaaagttatgtgcatgttgtagacggttgtaattcatcaacttgtatgatgtgttacaaacgtaatagagcaacaagagtcgaatgtacaactattgttaatggtgttagaaggtccttttatgtctatgctaatggaggtaaaggcttttgcaaactacacaattggaattgtgttaattgtgatacattctgtgctggtagtacatttattagtgatgaagttgcgagagacttgtcactacagtttaaaagaccaataaatcctactgaccagtcttcttacatcgttgatagtgttacagtgaagaatggttccatccatctttactttgataaagctggtcaaaagacttatgaaagacattctctctctcattttgttaacttagacaacctgagagctaataacactaaaggttcattgcctattaatgttatagtttttgatggtaaatcaaaatgtgaagaatcatctgcaaaatcagcgtctgtttactacagtcagcttatgtgtcaacctatactgttactagatcaggcattagtgtctgatgttggtgatagtgcggaagttgcagttaaaatgtttgatgcttacgttaatacgttttcatcaacttttaacgtaccaatggaaaaactcaaaacactagttgcaactgcagaagctgaacttgcaaagaatgtgtccttagacaatgtcttatctacttttatttcagcagctcggcaagggtttgttgattcagatgtagaaactaaagatgttgttgaatgtcttaaattgtcacatcaatctgacatagaagttactggcgatagttgtaataactatatgctcacctataacaaagttgaaaacatgacaccccgtgaccttggtgcttgtattgactgtagtgcgcgtcatattaatgcgcaggtagcaaaaagtcacaacattgctttgatatggaacgttaaagatttcatgtcattgtctgaacaactacgaaaacaaatacgtagtgctgctaaaaagaataacttaccttttaagttgacatgtgcaactactagacaagttgttaatgttgtaacaacaaagatagcacttaagggtggtaaaattgttaataattggttgaagcagttaattaaagttacacttgtgttcctttttgttgctgctattttctatttaataacacctgttcatgtcatgtctaaacatactgacttttcaagtgaaatcataggatacaaggctattgatggtggtgtcactcgtgacatagcatctacagatacttgttttgctaacaaacatgctgattttgacacatggtttagccagcgtggtggtagttatactaatgacaaagcttgcccattgattgctgcagtcataacaagagaagtgggttttgtcgtgcctggtttgcctggcacgatattacgcacaactaatggtgactttttgcatttcttacctagagtttttagtgcagttggtaacatctgttacacaccatcaaaacttatagagtacactgactttgcaacatcagcttgtgttttggctgctgaatgtacaatttttaaagatgcttctggtaagccagtaccatattgttatgataccaatgtactagaaggttctgttgcttatgaaagtttacgccctgacacacgttatgtgctcatggatggctctattattcaatttcctaacacctaccttgaaggttctgttagagtggtaacaacttttgattctgagtactgtaggcacggcacttgtgaaagatcagaagctggtgtttgtgtatctactagtggtagatgggtacttaacaatgattattacagatctttaccaggagttttctgtggtgtagatgctgtaaatttacttactaatatgtttacaccactaattcaacctattggtgctttggacatatcagcatctatagtagctggtggtattgtagctatcgtagtaacatgccttgcctactattttatgaggtttagaagagcttttggtgaatacagtcatgtagttgcctttaatactttactattccttatgtcattcactgtactctgtttaacaccagtttactcattcttacctggtgtttattctgttatttacttgtacttgacattttatcttactaatgatgtttcttttttagcacatattcagtggatggttatgttcacacctttagtacctttctggataacaattgcttatatcatttgtatttccacaaagcatttctattggttctttagtaattacctaaagagacgtgtagtctttaatggtgtttcctttagtacttttgaagaagctgcgctgtgcacctttttgttaaataaagaaatgtatctaaagttgcgtagtgatgtgctattacctcttacgcaatataatagatacttagctctttataataagtacaagtattttagtggagcaatggatacaactagctacagagaagctgcttgttgtcatctcgcaaaggctctcaatgacttcagtaactcaggttctgatgttctttaccaaccaccacaaacctctatcacctcagctgttttgcagagtggttttagaaaaatggcattcccatctggtaaagttgagggttgtatggtacaagtaacttgtggtacaactacacttaacggtctttggcttgatgacgtagtttactgtccaagacatgtgatctgcacctctgaagacatgcttaaccctaattatgaagatttactcattcgtaagtctaatcataatttcttggtacaggctggtaatgttcaactcagggttattggacattctatgcaaaattgtgtacttaagcttaaggttgatacagccaatcctaagacacctaagtataagtttgttcgcattcaaccaggacagactttttcagtgttagcttgttacaatggttcaccatctggtgtttaccaatgtgctatgaggcccaatttcactattaagggttcattccttaatggttcatgtggtagtgttggttttaacatagattatgactgtgtctctttttgttacatgcaccatatggaattaccaactggagttcatgctggcacagacttagaaggtaacttttatggaccttttgttgacaggcaaacagcacaagcagctggtacggacacaactattacagttaatgttttagcttggttgtacgctgctgttataaatggagacaggtggtttctcaatcgatttaccacaactcttaatgactttaaccttgtggctatgaagtacaattatgaacctctaacacaagaccatgttgacatactaggacctctttctgctcaaactggaattgccgttttagatatgtgtgcttcattaaaagaattactgcaaaatggtatgaatggacgtaccatattgggtagtgctttattagaagatgaatttacaccttttgatgttgttagacaatgctcaggtgttactttccaaagtgcagtgaaaagaacaatcaagggtacacaccactggttgttactcacaattttgacttcacttttagttttagtccagagtactcaatggtctttgttcttttttttgtatgaaaatgcctttttaccttttgctatgggtattattgctatgtctgcttttgcaatgatgtttgtcaaacataagcatgcatttctctgtttgtttttgttaccttctcttgccactgtagcttattttaatatggtctatatgcctgctagttgggtgatgcgtattatgacatggttggatatggttgatactagtttgaagctaaaagactgtgttatgtatgcatcagctgtagtgttactaatccttatgacagcaagaactgtgtatgatgatggtgctaggagagtgtggacacttatgaatgtcttgacactcgtttataaagtttattatggtaatgctttagatcaagccatttccatgtgggctcttataatctctgttacttctaactactcaggtgtagttacaactgtcatgtttttggccagaggtattgtttttatgtgtgttgagtattgccctattttcttcataactggtaatacacttcagtgtataatgctagtttattgtttcttaggctatttttgtacttgttactttggcctcttttgtttactcaaccgctactttagactgactcttggtgtttatgattacttagtttctacacaggagtttagatatatgaattcacagggactactcccacccaagaatagcatagatgccttcaaactcaacattaaattgttgggtgttggtggcaaaccttgtatcaaagtagccactgtacagtctaaaatgtcagatgtaaagtgcacatcagtagtcttactctcagttttgcaacaactcagagtagaatcatcatctaaattgtgggctcaatgtgtccagttacacaatgacattctcttagctaaagatactactgaagcctttgaaaaaatggtttcactactttctgttttgctttccatgcagggtgctgtagacataaacaagctttgtgaagaaatgctggacaacagggcaaccttacaagctatagcctcagagtttagttcccttccatcatatgcagcttttgctactgctcaagaagcttatgagcaggctgttgctaatggtgattctgaagttgttcttaaaaagttgaagaagtctttgaatgtggctaaatctgaatttgaccgtgatgcagccatgcaacgtaagttggaaaagatggctgatcaagctatgacccaaatgtataaacaggctagatctgaggacaagagggcaaaagttactagtgctatgcagacaatgcttttcactatgcttagaaagttggataatgatgcactcaacaacattatcaacaatgcaagagatggttgtgttcccttgaacataatacctcttacaacagcagccaaactaatggttgtcataccagactataacacatataaaaatacgtgtgatggtacaacatttacttatgcatcagcattgtgggaaatccaacaggttgtagatgcagatagtaaaattgttcaacttagtgaaattagtatggacaattcacctaatttagcatggcctcttattgtaacagctttaagggccaattctgctgtcaaattacagaataatgagcttagtcctgttgcactacgacagatgtcttgtgctgccggtactacacaaactgcttgcactgatgacaatgcgttagcttactacaacacaacaaagggaggtaggtttgtacttgcactgttatccgatttacaggatttgaaatgggctagattccctaagagtgatggaactggtactatctatacagaactggaaccaccttgtaggtttgttacagacacacctaaaggtcctaaagtgaagtatttatactttattaaaggattaaacaacctaaatagaggtatggtacttggtagtttagctgccacagtacgtctacaagctggtaatgcaacagaagtgcctgccaattcaactgtattatctttctgtgcttttgctgtagatgctgctaaagcttacaaagattatctagctagtgggggacaaccaatcactaattgtgttaagatgttgtgtacacacactggtactggtcaggcaataacagttacaccggaagccaatatggatcaagaatcctttggtggtgcatcgtgttgtctgtactgccgttgccacatagatcatccaaatcctaaaggattttgtgacttaaaaggtaagtatgtacaaatacctacaacttgtgctaatgaccctgtgggttttacacttaaaaacacagtctgtaccgtctgcggtatgtggaaaggttatggctgtagttgtgatcaactccgcgaacccatgcttcagtcagctgatgcacaatcgtttttaaacgggtttgcggtgtaagtgcagcccgtcttacaccgtgcggcacaggcactagtactgatgtcgtatacagggcttttgacatctacaatgataaagtagctggttttgctaaattcctaaaaactaattgttgtcgcttccaagaaaaggacgaagatgacaatttaattgattcttactttgtagttaagagacacactttctctaactaccaacatgaagaaacaatttataatttacttaaggattgtccagctgttgctaaacatgacttctttaagtttagaatagacggtgacatggtaccacatatatcacgtcaacgtcttactaaatacacaatggcagacctcgtctatgctttaaggcattttgatgaaggtaattgtgacacattaaaagaaatacttgtcacatacaattgttgtgatgatgattatttcaataaaaaggactggtatgattttgtagaaaacccagatatattacgcgtatacgccaacttaggtgaacgtgtacgccaagctttgttaaaaacagtacaattctgtgatgccatgcgaaatgctggtattgttggtgtactgacattagataatcaagatctcaatggtaactggtatgatttcggtgatttcatacaaaccacgccaggtagtggagttcctgttgtagattcttattattcattgttaatgcctatattaaccttgaccagggctttaactgcagagtcacatgttgacactgacttaacaaagccttacattaagtgggatttgttaaaatatgacttcacggaagagaggttaaaactctttgaccgttattttaaatattgggatcagacataccacccaaattgtgttaactgtttggatgacagatgcattctgcattgtgcaaactttaatgttttattctctacagtgttcccacttacaagttttggaccactagtgagaaaaatatttgttgatggtgttccatttgtagtttcaactggataccacttcagagagctaggtgttgtacataatcaggatgtaaacttacatagctctagacttagttttaaggaattacttgtgtatgctgctgaccctgctatgcacgctgcttctggtaatctattactagataaacgcactacgtgcttttcagtagctgcacttactaacaatgttgcttttcaaactgtcaaacctggtaattttaacaaagacttctatgactttgctgtgtctaagggtttctttaaggaaggaagttctgttgaattaaaacacttcttctttgctcaggatggtaatgctgctatcagcgattatgactactatcgttataatctaccaacaatgtgtgatatcagacaactactatttgtagttgaagttgttgataagtactttgattgttacgatggtggctgtattaatgctaaccaagtcatcgtcaacaacctagacaaatcagctggttttccatttaataaatggggtaaggctagactttattatgattcaatgagttatgaggatcaagatgcacttttcgcatatacaaaacgtaatgtcatccctactataactcaaatgaatcttaagtatgccattagtgcaaagaacagagctcgcaccgtagctggtgtctctatctgtagtactatgaccaatagacagtttcatcaaaaattattgaaatcaatagccgccactagaggagctactgtagtaattggaacaagcaaattctatggtggttggcacaacatgttaaaaactgtttatagtgatgtagaaaaccctcatcttatgggttgggattatcctaaatgtgatagagccatgcctaacatgcttagaattatggcctcacttgttcttgctcgcaaacatacaacgtgttgtagcttgtcacaccgtttctatagattagctaatgagtgtgctcaagtattgagtgaaatggtcatgtgtggcggttcactatatgttaaaccaggtggaacctcatcaggagatgccacaactgcttatgctaatagtgtttttaacatttgtcaagctgtcacggccaatgttaatgcacttttatctactgatggtaacaaaattgccgataagtatgtccgcaatttacaacacagactttatgagtgtctctatagaaatagagatgttgacacagactttgtgaatgagttttacgcatatttgcgtaaacatttctcaatgatgatactctctgacgatgctgttgtgtgtttcaatagcacttatgcatctcaaggtctagtggctagcataaagaactttaagtcagttctttattatcaaaacaatgtttttatgtctgaagcaaaatgttggactgagactgaccttactaaaggacctcatgaattttgctctcaacatacaatgctagttaaacagggtgatgattatgtgtaccttccttacccagatccatcaagaatcctaggggccggctgttttgtagatgatatcgtaaaaacagatggtacacttatgattgaacggttcgtgtctttagctatagatgcttacccacttactaaacatcctaatcaggagtatgctgatgtctttcatttgtacttacaatacataagaaagctacatgatgagttaacaggacacatgttagacatgtattctgttatgcttactaatgataacacctcaaggtattgggaacctgagttttatgaggctatgtacacaccgcatacagtcttacaggctgttggggcttgtgttctttgcaattcacagacttcattaagatgtggtgcttgcatacgtagaccattcttatgttgtaaatgctgttacgaccatgtcatatcaacatcacataaattagtcttgtctgttaatccgtatgtttgcaatgctccaggttgtgatgtcacagatgtgactcaactttacttaggaggtatgagctattattgtaaatcacataaaccacccattagttttccattgtgtgctaatggacaagtttttggtttatataaaaatacatgtgttggtagcgataatgttactgactttaatgcaattgcaacatgtgactggacaaatgctggtgattacattttagctaacacctgtactgaaagactcaagctttttgcagcagaaacgctcaaagctactgaggagacatttaaactgtcttatggtattgctactgtacgtgaagtgctgtctgacagagaattacatctttcatgggaagttggtaaacctagaccaccacttaaccgaaattatgtctttactggttatcgtgtaactaaaaacagtaaagtacaaataggagagtacacctttgaaaaaggtgactatggtgatgctgttgtttaccgaggtacaacaacttacaaattaaatgttggtgattattttgtgctgacatcacatacagtaatgccattaagtgcacctacactagtgccacaagagcactatgttagaattactggcttatacccaacactcaatatctcagatgagttttctagcaatgttgcaaattatcaaaaggttggtatgcaaaagtattctacactccagggaccacctggtactggtaagagtcattttgctattggcctagctctctactacccttctgctcgcatagtgtatacagcttgctctcatgccgctgttgatgcactatgtgagaaggcattaaaatatttgcctatagataaatgtagtagaattatacctgcacgtgctcgtgtagagtgttttgataaattcaaagtgaattcaacattagaacagtatgtcttttgtactgtaaatgcattgcctgagacgacagcagatatagttgtctttgatgaaatttcaatggccacaaattatgatttgagtgttgtcaatgccagattacgtgctaagcactatgtgtacattggcgaccctgctcaattacctgcaccacgcacattgctaactaagggcacactagaaccagaatatttcaattcagtgtgtagacttatgaaaactataggtccagacatgttcctcggaacttgtcggcgttgtcctgctgaaattgttgacactgtgagtgctttggtttatgataataagcttaaagcacataaagacaaatcagctcaatgctttaaaatgttttataagggtgttatcacgcatgatgtttcatctgcaattaacaggccacaaataggcgtggtaagagaattccttacacgtaaccctgcttggagaaaagctgtctttatttcaccttataattcacagaatgctgtagcctcaaagattttgggactaccaactcaaactgttgattcatcacagggctcagaatatgactatgtcatattcactcaaaccactgaaacagctcactcttgtaatgtaaacagatttaatgttgctattaccagagcaaaagtaggcatactttgcataatgtctgatagagacctttatgacaagttgcaatttacaagtcttgaaattccacgtaggaatgtggcaactttacaagctgaaaatgtaacaggactctttaaagattgtagtaaggtaatcactgggttacatcctacacaggcacctacacacctcagtgttgacactaaattcaaaactgaaggtttatgtgttgacatacctggcatacctaaggacatgacctatagaagactcatctctatgatgggttttaaaatgaattatcaagttaatggttaccctaacatgtttatcacccgcgaagaagctataagacatgtacgtgcatggattggcttcgatgtcgaggggtgtcatgctactagagaagctgttggtaccaatttacctttacagctaggtttttctacaggtgttaacctagttgctgtacctacaggttatgttgatacacctaataatacagatttttccagagttagtgctaaaccaccgcctggagatcaatttaaacacctcataccacttatgtacaaaggacttccttggaatgtagtgcgtataaagattgtacaaatgttaagtgacacacttaaaaatctctctgacagagtcgtatttgtcttatgggcacatggctttgagttgacatctatgaagtattttgtgaaaataggacctgagcgcacctgttgtctatgtgatagacgtgccacatgcttttccactgcttcagacacttatgcctgttggcatcattctattggatttgattacgtctataatccgtttatgattgatgttcaacaatggggttttacaggtaacctacaaagcaaccatgatctgtattgtcaagtccatggtaatgcacatgtagctagttgtgatgcaatcatgactaggtgtctagctgtccacgagtgctttgttaagcgtgttgactggactattgaatatcctataattggtgatgaactgaagattaatgcggcttgtagaaaggttcaacacatggttgttaaagctgcattattagcagacaaattcccagttcttcacgacattggtaaccctaaagctattaagtgtgtacctcaagctgatgtagaatggaagttctatgatgcacagccttgtagtgacaaagcttataaaatagaagaattattctattcttatgccacacattctgataaattcacagatggtgtatgcctattttggaattgcaatgtcgatagatatcctgctaattccattgtttgtagatttgacactagagtgctatctaaccttaacttgcctggttgtgatggtggcagtttgtatgtaaataaacatgcattccacacaccagcttttgataaaagtgcttttgttaatttaaaacaattaccatttttctattactctgacagtccatgtgagtctcatggaaaacaagtagtgtcagatatagattatgtaccactaaagtctgctacgtgtataacacgttgcaatttaggtggtgctgtctgtagacatcatgctaatgagtacagattgtatctcgatgcttataacatgatgatctcagctggctttagcttgtgggtttacaaacaatttgatacttataacctctggaacacttttacaagacttcagagtttagaaaatgtggcttttaatgttgtaaataagggacactttgatggacaacagggtgaagtaccagtttctatcattaataacactgtttacacaaaagttgatggtgttgatgtagaattgtttgaaaataaaacaacattacctgttaatgtagcatttgagctttgggctaagcgcaacattaaaccagtaccagaggtgaaaatactcaataatttgggtgtggacattgctgctaatactgtgatctgggactacaaaagagatgctccagcacatatatctactattggtgtttgttctatgactgacatagccaagaaaccaactgaaacgatttgtgcaccactcactgtcttttttgatggtagagttgatggtcaagtagacttatttagaaatgcccgtaatggtgttcttattacagaaggtagtgttaaaggtttacaaccatctgtaggtcccaaacaagctagtcttaatggagtcacattaattggagaagccgtaaaaacacagttcaattattataagaaagttgatggtgttgtccaacaattacctgaaacttactttactcagagtagaaatttacaagaatttaaacccaggagtcaaatggaaattgatttcttagaattagctatggatgaattcattgaacggtataaattagaaggctatgccttcgaacatatcgtttatggagattttagtcatagtcagttaggtggtttacatctactgattggactagctaaacgttttaaggaatcaccttttgaattagaagattttattcttatggacagtacagttaaaaactatttcataacagatgcgcaaacaggttcatctaagtgtgtgtgttctgttattgatttattacttgatgattttgttgaaataataaaatcccaagatttatctgtagtttctaaggttgtcaaagtgactattgactatacagaaatttcatttatgctttggtgtaaagatggccatgtagaaacattttacccaaaattacaatctagtcaagcgtggcaaccgggtgttgctatgcctaatctttacaaaatgcaaagaatgctattagaaaagtgtgaccttcaaaattatggtgatagtgcaacattacctaaaggcataatgatgaatgtcgcaaaatatactcaactgtgtcaatatttaaacacattaacattagctgtaccctataatatgagagttatacattttggtgctggttctgataaaggagttgcaccaggtacagctgttttaagacagtggttgcctacgggtacgctgcttgtcgattcagatcttaatgactttgtctctgatgcagattcaactttgattggtgattgtgcaactgtacatacagctaataaatgggatctcattattagtgatatgtacgaccctaagactaaaaatgttataaaagaaaatgactctaaagagggttttttcacttacatttgtgggtttatacaacaaaagctagctcttggaggttccgtggctataaagataacagaacattcttggaatgctgatctttataagctcatgggacacttcgcatggtggacagcctttgttactaatgtgaatgcgtcatcatctgaagcatttttaattggatgtaattatcttggcaaaccacgcgaacaaatagatggttatgtcatgcatgcaaattacatattttggaggaatacaaatccaattcagttgtcttcctattctttatttgacatgagtaaatttccccttaaattaaggggtactgctgttatgtctttaaaagaaggtcaaatcaatgatatgattttatctcttcttagtaaaggtagacttataattagagaaaacaacagagttgttatttctagtgatgttcttgttaacaactaaacgaacaatgtttgtttttcttgttttattgccactagtctctagtcagtgtgttaatcttacaaccagaactcaattaccccctgcatacactaattctttcacacgtggtgtttattaccctgacaaagttttcagatcctcagttttacattcaactcaggacttgttcttacctttcttttccaatgttacttggttccatgctatctctgggaccaatggtactaagaggtttgataaccctgtcctaccatttaatgatggtgtttattttgcttccactgagaagtctaacataataagaggctggatttttggtactactttagattcgaagacccagtccctacttattgttaataacgctactaatgttgttattaaagtctgtgaatttcaattttgtaatgatccatttttgggtgtttaccacaaaaacaacaaaagttggatggaaagtgagttcagagtttattctagtgcgaataattgcacttttgaatatgtctctcagccttttcttatggaccttgaaggaaaacagggtaatttcaaaaatcttagggaatttgtgtttaagaatattgatggttattttaaaatatattctaagcacacgcctattaatttagtgcgtgatctccctcagggtttttcggctttagaaccattggtagatttgccaataggtattaacatcactaggtttcaaactttacttgctttacatagaagttatttgactcctggtgattcttcttcaggttggacagctggtgctgcagcttattatgtgggttatcttcaacctaggacttttctattaaaatataatgaaaatggaaccattacagatgctgtagactgtgcacttgaccctctctcagaaacaaagtgtacgttgaaatccttcactgtagaaaaaggaatctatcaaacttctaactttagagtccaaccaacagaatctattgttagatttcctaatattacaaacttgtgcccttttggtgaagtttttaacgccaccagatttgcatctgtttatgcttggaacaggaagagaatcagcaactgtgttgctgattattctgtcctatataattccgcatcattttccacttttaagtgttatggagtgtctcctactaaattaaatgatctctgctttactaatgtctatgcagattcatttgtaattagaggtgatgaagtcagacaaatcgctccagggcaaactggaaagattgctgattataattataaattaccagatgattttacaggctgcgttatagcttggaattctaacaatcttgattctaaggttggtggtaattataattacctgtatagattgtttaggaagtctaatctcaaaccttttgagagagatatttcaactgaaatctatcaggccggtagcacaccttgtaatggtgttgaaggttttaattgttactttcctttacaatcatatggtttccaacccacttatggtgttggttaccaaccatacagagtagtagtactttcttttgaacttctacatgcaccagcaactgtttgtggacctaaaaagtctactaatttggttaaaaacaaatgtgtcaatttcaacttcaatggtttaacaggcacaggtgttcttactgagtctaacaaaaagtttctgcctttccaacaatttggcagagacattgatgacactactgatgctgtccgtgatccacagacacttgagattcttgacattacaccatgttcttttggtggtgtcagtgttataacaccaggaacaaatacttctaaccaggttgctgttctttatcagggtgttaactgcacagaagtccctgttgctattcatgcagatcaacttactcctacttggcgtgtttattctacaggttctaatgtttttcaaacacgtgcaggctgtttaataggggctgaacatgtcaacaactcatatgagtgtgacatacctattggtgcaggtatatgcgctagttatcagactcagactaattctcatcggcgggcacgtagtgtagctagtcaatccatcattgcctacactatgtcacttggtgcagaaaattcagttgcttactctaataactctattgccatacccataaattttactattagtgttaccacagaaattctaccagtgtctatgaccaagacatcagtagattgtacaatgtacatttgtggtgattcaactgaatgcagcaatcttttgttgcaatatggcagtttttgtacacaattaaaccgtgctttaactggaatagctgttgaacaagacaaaaacacccaagaagtttttgcacaagtcaaacaaatttacaaaacaccaccaattaaagattttggtggttttaatttttcacaaatattaccagatccatcaaaaccaagcaagaggtcatttattgaagatctacttttcaacaaagtgacacttgcagatgctggcttcatcaaacaatatggtgattgccttggtgatattgctgctagagacctcatttgtgcacaaaagtttaacggccttactgttttgccacctttgctcacagatgaaatgattgctcaatacacttctgcactgttagcgggtacaatcacttctggttggacctttggtgcaggtgctgcattacaaataccatttgctatgcaaatggcttataggtttaatggtattggagttacacagaatgttctctatgagaaccaaaaattgattgccaaccaatttaatagtgctattggcaaaattcaagactcactttcttccacagcaagtgcacttggaaaacttcaagatgtggtcaaccaaaatgcacaagctttaaacacgcttgttaaacaacttagctccaattttggtgcaatttcaagtgttttaaatgatatccttgcacgtcttgacaaagttgaggctgaagtgcaaattgataggttgatcacaggcagacttcaaagtttgcagacatatgtgactcaacaattaattagagctgcagaaatcagagcttctgctaatcttgctgctactaaaatgtcagagtgtgtacttggacaatcaaaaagagttgatttttgtggaaagggctatcatcttatgtccttccctcagtcagcacctcatggtgtagtcttcttgcatgtgacttatgtccctgcacaagaaaagaacttcacaactgctcctgccatttgtcatgatggaaaagcacactttcctcgtgaaggtgtctttgtttcaaatggcacacactggtttgtaacacaaaggaatttttatgaaccacaaatcattactacacacaacacatttgtgtctggtaactgtgatgttgtaataggaattgtcaacaacacagtttatgatcctttgcaacctgaattagactcattcaaggaggagttagataaatattttaagaatcatacatcaccagatgttgatttaggtgacatctctggcattaatgcttcagttgtaaatattcaaaaagaaattgaccgcctcaatgaggttgccaagaatttaaatgaatctctcatcgatctccaagaacttggaaagtatgagcagtatataaaatggccatggtacatttggctaggttttatagctggcttgattgccatagtaatggtgacaattatgctttgctgtatgaccagttgctgtagttgtctcaagggctgttgttcttgtggatcctgctgcaaatttgatgaagacgactctgagccagtgctcaaaggagtcaaattacattacacataaacgaacttatggatttgtttatgagaatcttcacaattggaactgtaactttgaagcaaggtgaaatcaaggatgctactccttcagattttgttcgcgctactgcaacgataccgatacaagcctcactccctttcggatggcttattgttggcgttgcacttcttgctgtttttcagagcgcttccaaaatcataaccctcaaaaagagatggcaactagcactctccaagggtgttcactttgtttgcaacttgctgttgttgtttgtaacagtttactcacaccttttgctcgttgctgctggccttgaagccccttttctctatctttatgctttagtctacttcttgcagagtataaactttgtaagaataataatgaggctttggctttgctggaaatgccgttccaaaaacccattactttatgatgccaactattttctttgctggcatactaattgttacgactattgtataccttacaatagtgtaacttcttcaattgtcattacttcaggtgatggcacaacaagtcctatttctgaacatgactaccagattggtggttatactgaaaaatgggaatctggagtaaaagactgtgttgtattacacagttacttcacttcagactattaccagctgtactcaactcaattgagtacagacactggtgttgaacatgttaccttcttcatctacaataaaattgttgatgagcctgaagaacatgtccaaattcacacaatcgacggttcatccggagttgttaatccagtaatggaaccaatttatgatgaaccgacgacgactactagcgtgcctttgtaagcacaagctgatgagtacgaacttatgtactcattcgtttcggaagagacaggtacgttaatagttaatagcgtacttctttttcttgctttcgtggtattcttgctagttacactagccatccttactgcgcttcgattgtgtgcgtactgctgcaatattgttaacgtgagtcttgtaaaaccttctttttacgtttactctcgtgttaaaaatctgaattcttctagagttcctgatcttctggtctaaacgaactaaatattatattagtttttctgtttggaactttaattttagccatggcagattccaacggtactattaccgttgaagagcttaaaaagctccttgaacaatggaacctagtaataggtttcctattccttacatggatttgtcttctacaatttgcctatgccaacaggaataggtttttgtatataattaagttaattttcctctggctgttatggccagtaactttagcttgttttgtgcttgctgctgtttacagaataaattggatcaccggtggaatttctatcgcaatggcttgtcttgtaggcttgatgtggctcagctacttcattgcttctttcagactgtttgcgcgtacgcgttccatgtggtcattcaatccagaaactaacattcttctcaacgtgccactccatggcactattctgaccagaccgcttctagaaagtgaactcgtaatcggagctgtgatccttcgtggacatcttcgtattgctggacaccatctaggacgctgtgacatcaaggacctgcctaaagaaatcactgttgctacatcacgaacgctttcttattacaaattgggagcttcgcagcgtgtagcaggtgactcaggttttgctgcatacagtcgctacaggattggcaactataaattaaacacagaccattccagtagcagtgacaatattgctttgcttgtacagtaagtgacaacagatgtttcatctcgttgactttcaggttactatagcagagatattactaattattatgaggacttttaaagtttccatttggaatcttgattacatcataaacctcataattaaaaatttatctaagtcactaactgagaataaatattctcaattagatgaagagcaaccaatggagattgattaaacgaacatgaaaattattcttttcttggcactgataacactcgctacttgtgagctttatcactaccaagagtgtgttagaggtacaacagtacttttaaaagaaccttgctcttctggaacatacgagggcaattcaccatttcatcctctagctgataacaaatttgcactgacttgctttagcactcaatttgcttttgcttgtcctgacggcgtaaaacacgtctatcagttacgtgccagatcagtttcacctaaactgttcatcagacaagaggaagttcaataactttactctccaatttttcttattgttgcggcaatagtgtttataacactttgcttcacactcaaaagaaagacagaatgattgaactttcattaattgacttctatttgtgctttttagcctttctgctattccttgttttaattatgcttattatcttttggttctcacttgaactgcaagatcataatgaaacttgtcacgcctaaacgaacatgaaatttcttgttttcttaggaatcatcacaactgtagctgcatttcaccaagaatgtagtttacagtcatgtacttaacatcaaccatatgtagttgatgacccgtgtcctattcacttctattctaaatggtatattagagtaggagctataaaatcagcacctttaattgaattgtgcgtggatgaggctggttcttaatcacccattcagtgcatcgatatcggtaattatacagtttcctgtttaccttttacaattaattgccaggaacctaaattgggtagtcttgtagtgcgttgttcgttctatgaagactttttagagtatcatgacgttcgtgttgttttagatttcatctaaacgaacaaactaaatgtctctaaatggaccccaaaatcagcgaaatgcaccccgcattacgtttggtggaccctcagattcaactggcagtaaccagaatggagaacgcagtggggcgcgatcaaaacaacgtcggccccaaggtttacccaataatactgcgtcttggttcaccgctctcactcaacatggcaaggaagaccttaaattccctcgaggacaaggcgttccaattaacaccaatagcagtccagatgaccaaattggctactaccgaagagctaccagacgaattcgtggtggtgacggtaaaatgaaagatctcagtccaagatggtatttctactacctaggaactgggccagaagctggacttccctatggtgctaacaaagacggcatcatatgggttgcaactgagggagccttgaatacaccaaaagatcacattggcacccgcaatcctgctaacaatgctgcaatcgtgctacaacttcctcaaggaacaacattgccaaaaggcttctacgcagaagggagcagaggcggcagtcaagcctcttctcgttcctcatcacgtagtcgcaacagttcaagaaattcaactccaggcagcagtaaacgaacttctcctgctagaatggctggcaatggcggtgatgctgctcttgctttgctgctgcttgacagattgaaccagcttgagagcaaaatgtttggtaaaggccaacaacaacaaggccaaactgtcactaagaaatctgctgctgaggcttctaagaagcctcggcaaaaacgtactgccactaaagcatacaatgtaacacaagctttcggcagacgtggtccagaacaaacccaaggaaattttggggaccaggaactaatcagacaaggaactgattacaaacattggccgcaaattgcacaatttgcccccagcgcttcagcgttcttcggaatgtcgcgcattggcatggaagtcacaccttcgggaacgtggttgacctacacaggtgccatcaaattggatgacaaagatccaaatttcaaagatcaagtcattttgctgaataagcatattgacgcatacaaaacattcccaccaacagagcctaaaaaggacaaaaagaagaaggctgatgaaactcaagccttaccgcagagacagaagaaacagcaaactgtgactcttcttcctgctgcagatttggatgatttctccaaacaattgcaacaatccatgagcagtgctgactcaactcaggcctaaactcatgcagaccacacaaggcagatgggctatataaacgttttcgcttttccgtttacgatatatagtctactcttgtgcagaatgaattctcgtaactacatagcacaagtagatgtagttaactttaatctcacatagcaatctttaatcagtgtgtaacattagggaggacttgaaagagccaccacattttcaccgaggccacgcggagtacgatcgagtgtacagtgaacaatgctagggagagctgcctatatggaagagccctaatgtgtaaaattaattttagtagt",
+            "features": [
+                {
+                    "id": "feature_5",
+                    "type": "source",
+                    "location": "1..29795",
+                    "qualifiers": {
+                        "ff_definition": [
+                            "@@[organism]@@ @@[isolate]@@ RNA, complete genome"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_6",
+                    "type": "5'UTR",
+                    "location": "1..250",
+                    "qualifiers": {}
+                },
+                {
+                    "id": "feature_7",
+                    "type": "CDS",
+                    "location": "join(251..13444,13444..21531)",
+                    "qualifiers": {
+                        "product": [
+                            "ORF1ab polyprotein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ],
+                        "ribosomal_slippage": [
+                            true
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_8",
+                    "type": "CDS",
+                    "location": "251..13459",
+                    "qualifiers": {
+                        "product": [
+                            "ORF1a polyprotein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_9",
+                    "type": "mat_peptide",
+                    "location": "251..790",
+                    "qualifiers": {
+                        "product": [
+                            "leader protein"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_10",
+                    "type": "mat_peptide",
+                    "location": "791..2704",
+                    "qualifiers": {
+                        "product": [
+                            "nsp2"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_11",
+                    "type": "mat_peptide",
+                    "location": "2705..8539",
+                    "qualifiers": {
+                        "product": [
+                            "nsp3"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_12",
+                    "type": "mat_peptide",
+                    "location": "8540..10039",
+                    "qualifiers": {
+                        "product": [
+                            "nsp4"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_13",
+                    "type": "mat_peptide",
+                    "location": "10040..10957",
+                    "qualifiers": {
+                        "product": [
+                            "3C-like proteinase"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_14",
+                    "type": "mat_peptide",
+                    "location": "10958..11818",
+                    "qualifiers": {
+                        "product": [
+                            "nsp6"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_15",
+                    "type": "mat_peptide",
+                    "location": "11819..12067",
+                    "qualifiers": {
+                        "product": [
+                            "nsp7"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_16",
+                    "type": "mat_peptide",
+                    "location": "12068..12661",
+                    "qualifiers": {
+                        "product": [
+                            "nsp8"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_17",
+                    "type": "mat_peptide",
+                    "location": "12662..13000",
+                    "qualifiers": {
+                        "product": [
+                            "nsp9"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_18",
+                    "type": "mat_peptide",
+                    "location": "13001..13417",
+                    "qualifiers": {
+                        "product": [
+                            "nsp10"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_19",
+                    "type": "mat_peptide",
+                    "location": "join(13418..13444,13444..16212)",
+                    "qualifiers": {
+                        "product": [
+                            "RNA-dependent RNA polymerase"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_20",
+                    "type": "mat_peptide",
+                    "location": "13418..13456",
+                    "qualifiers": {
+                        "product": [
+                            "nsp11"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_21",
+                    "type": "stem_loop",
+                    "location": "13452..13479",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF1ab"
+                        ],
+                        "note": [
+                            "Coronavirus frameshifting stimulation element stem-loop 1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_22",
+                    "type": "stem_loop",
+                    "location": "13464..13518",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF1ab"
+                        ],
+                        "note": [
+                            "Coronavirus frameshifting stimulation element stem-loop 2"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_23",
+                    "type": "mat_peptide",
+                    "location": "16213..18015",
+                    "qualifiers": {
+                        "product": [
+                            "helicase"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_24",
+                    "type": "mat_peptide",
+                    "location": "18016..19596",
+                    "qualifiers": {
+                        "product": [
+                            "3'-to-5' exonuclease"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_25",
+                    "type": "mat_peptide",
+                    "location": "19597..20634",
+                    "qualifiers": {
+                        "product": [
+                            "endoRNAse"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_26",
+                    "type": "mat_peptide",
+                    "location": "20635..21528",
+                    "qualifiers": {
+                        "product": [
+                            "2'-O-ribose methyltransferase"
+                        ],
+                        "gene": [
+                            "ORF1ab"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_27",
+                    "type": "CDS",
+                    "location": "21539..25351",
+                    "qualifiers": {
+                        "product": [
+                            "surface glycoprotein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "S"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_28",
+                    "type": "CDS",
+                    "location": "25360..26187",
+                    "qualifiers": {
+                        "product": [
+                            "ORF3a protein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF3a"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_29",
+                    "type": "CDS",
+                    "location": "26212..26439",
+                    "qualifiers": {
+                        "product": [
+                            "envelope protein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "E"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_30",
+                    "type": "CDS",
+                    "location": "26490..27158",
+                    "qualifiers": {
+                        "product": [
+                            "membrane glycoprotein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "M"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_31",
+                    "type": "CDS",
+                    "location": "27169..27354",
+                    "qualifiers": {
+                        "product": [
+                            "ORF6 protein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF6"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_32",
+                    "type": "misc_feature",
+                    "location": "27361..27726",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF7a"
+                        ],
+                        "note": [
+                            "similar to CDS of ORF7a protein",
+                            "internal stop at 27645"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_33",
+                    "type": "CDS",
+                    "location": "27723..27854",
+                    "qualifiers": {
+                        "product": [
+                            "ORF7b"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF7b"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_34",
+                    "type": "misc_feature",
+                    "location": "27861..28226",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF8"
+                        ],
+                        "note": [
+                            "similar to CDS of ORF8 protein",
+                            "internal stop at 27941"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_35",
+                    "type": "CDS",
+                    "location": "28240..29499",
+                    "qualifiers": {
+                        "product": [
+                            "nucleocapsid phosphoprotein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "N"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_36",
+                    "type": "CDS",
+                    "location": "29524..29640",
+                    "qualifiers": {
+                        "product": [
+                            "ORF10 protein"
+                        ],
+                        "codon_start": [
+                            "1"
+                        ],
+                        "gene": [
+                            "ORF10"
+                        ],
+                        "transl_table": [
+                            "1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_37",
+                    "type": "stem_loop",
+                    "location": "29575..29610",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF10"
+                        ],
+                        "note": [
+                            "Coronavirus 3' UTR pseudoknot stem-loop 1"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_38",
+                    "type": "stem_loop",
+                    "location": "29595..29623",
+                    "qualifiers": {
+                        "gene": [
+                            "ORF10"
+                        ],
+                        "note": [
+                            "Coronavirus 3' UTR pseudoknot stem-loop 2"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_39",
+                    "type": "stem_loop",
+                    "location": "29694..29734",
+                    "qualifiers": {
+                        "note": [
+                            "Coronavirus 3' stem-loop II-like motif (s2m)"
+                        ]
+                    }
+                },
+                {
+                    "id": "feature_40",
+                    "type": "3'UTR",
+                    "location": "29641..29795",
+                    "qualifiers": {}
+                }
+            ]
+        }
+    ]
+}
