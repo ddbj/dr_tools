@@ -1,26 +1,23 @@
 [project]
 name = "dr_tools"
 version = "0.0.1"
-authors = [{ name="nigyta", email="yt@nig.ac.jp" }]
+authors = [{ name = "nigyta", email = "yt@nig.ac.jp" }]
 description = "Utility tools for handling DFAST Record JSON and DDBJ MSS Files"
-readme = "README.md"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-
 dependencies = [
     "requests ~= 2.23.0",
+    "ddbj-record @ git+https://github.com/ddbj/ddbj-record-specifications.git@main",
 ]
+license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = [
-    "build",
-    "twine",
-]
-
+dev = ["build", "twine", "pytest", "pytest-mock"]
 
 [project.scripts]
 drt_hello = "dr_tools:hello"
@@ -30,7 +27,33 @@ drt_json2gbk = "dr_tools.json2biopython:json2gbk_main"
 drt_json2fasta = "dr_tools.json2fasta:json2fasta_main"
 drt_json2stats_for_dfast = "dr_tools.json2stats:json2stats_for_dfast_main"
 
-
 [project.urls]
 "Homepage" = "https://github.com/ddbj/dr_tools"
 "Bug Tracker" = "https://github.com/ddbj/dr_tools/issues"
+
+[tool.setuptools.package-data]
+dr_tools = ["py.typed"]
+
+[tool.mypy]
+files = ["./src/dr_tools/**/*.py", "./tests/**/*.py"]
+follow_imports = "silent"
+strict = true
+
+[tool.pylint.messages_control]
+disable = [
+    "C0114", # Missing module docstring
+    "C0115", # Missing class docstring
+    "C0116", # Missing function or method docstring
+    "C0301", # Line too long
+    "R0801", # Similar lines in 2 files
+    "R0903", # Too few public methods
+    "R0911", # Too many return statements
+    "R0912", # Too many branches
+    "R0913", # Too many arguments
+    "R0914", # Too many local variables
+    "R1705", # Unnecessary "else" after "return"
+    "W0511", # Fixme
+    "W0718", # Broad exception caught
+    "W0719", # Exception type of Exception
+    "I1101", # c-extension-no-member
+]
