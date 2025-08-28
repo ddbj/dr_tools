@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-BOOL_QUALIFIERS = ["pseudo", "environmental_sample", "ribosomal_slippage", "circular_RNA", "proviral", "focus", "germline", "macronuclear", "circular"]  # circular is only for topology
+from ddbj_record.converter.v2_to_v1 import v2_to_v1
+from ddbj_record.schema.v1 import DdbjRecord as DdbjRecordV1
+from ddbj_record.schema.v2 import DdbjRecord as DdbjRecordV2
+
+BOOL_QUALIFIERS = ["pseudo", "environmental_sample", "ribosomal_slippage", "circular_RNA",
+                   "proviral", "focus", "germline", "macronuclear", "circular"]  # circular is only for topology
 # the list above may need to be updated. See https://www.ddbj.nig.ac.jp/ddbj/qualifiers.html
+
 
 @dataclass
 class Sequence:
@@ -16,7 +21,7 @@ class Sequence:
     id: str
     seq: str
 
-    def to_fasta(self, width=60, separator=False) -> str:
+    def to_fasta(self, width: int = 60, separator: bool = False) -> str:
         """
         FASTA形式の文字列に変換する
         デフォルトでは60文字で改行
@@ -26,10 +31,11 @@ class Sequence:
         fasta.append(f">{self.id}")
         for i in range(0, len(self.seq), width):
             fasta.append(self.seq[i:i+width])
-        fasta = "\n".join(fasta)
+        fasta_str = "\n".join(fasta)
         if separator:
-            fasta += "\n//"
-        return fasta + "\n"
+            fasta_str += "\n//"
+        return fasta_str + "\n"
+
 
 @dataclass
 class Feature:
@@ -48,7 +54,7 @@ class Feature:
     location: str = ""  # COMMONタイプの場合は空文字列
     qualifiers: Dict[str, List[str | bool]] = field(default_factory=dict)
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """Convert the feature to a dictionary"""
         d = {
             "id": self.id,
@@ -57,10 +63,10 @@ class Feature:
             "qualifiers": self.qualifiers
         }
         locus_tag = self.qualifiers.get("locus_tag", [""])[0]
-        if locus_tag:
+        if isinstance(locus_tag, str) and locus_tag:
             if "_" not in locus_tag:
                 raise ValueError(f"Invalid locus_tag: {locus_tag}")
-            del d["qualifiers"]["locus_tag"]
+            del d["qualifiers"]["locus_tag"]  # type: ignore
             d["locus_tag_id"] = locus_tag.split("_", 1)[1]
         return d
 
@@ -81,7 +87,7 @@ class Feature:
         tsv[0][1] = self.type
         return tsv
 
-    def show(self):
+    def show(self) -> None:
         """Print the feature in a human-readable format"""
         indent = 2
         print(" " * indent + f"Feature {self.id}:")
@@ -92,6 +98,7 @@ class Feature:
         for key, values in self.qualifiers.items():
             for value in values:
                 print(" " * indent + f"{key}: {value}")
+
 
 @dataclass
 class Entry:
@@ -108,40 +115,44 @@ class Entry:
         for feature in self.features:
             tsv.extend(feature.to_tsv())
         if tsv:
-            tsv[0][0] = self.id
+            tsv[0][0] = str(self.id)
         return tsv
 
-    def show(self):
+    def show(self) -> None:
         """Print the entry in a human-readable format"""
         print(f"Entry ID: {self.id} Name: {self.name}")
         print("Features:")
         for feature in self.features:
             feature.show()
 
+
 @dataclass
 class MSS:
-    ann_file: Path
-    seq_file: Path
+    ann_file: Path | None
+    seq_file: Path | None
     entries: List[Entry] = field(default_factory=list)
     sequences: List[Sequence] = field(default_factory=list)
 
     @staticmethod
     def parse(ann_file: Path, seq_file: Path) -> "MSS":
         """
-        MSSのannファイルとseqファイルをパースしてMSSインスタンスを作成する       
+        MSSのannファイルとseqファイルをパースしてMSSインスタンスを作成する
         """
         current_entry = None
         current_feature: Optional[Feature] = None
         feature_counter = 1  # 連番カウンター
         mss = MSS(ann_file=ann_file, seq_file=seq_file)
-        with open(mss.ann_file, "r") as f:
+        if mss.ann_file is None or mss.seq_file is None:
+            raise ValueError("MSS instance must have ann_file and seq_file")
+
+        with open(mss.ann_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip("\n")
                 if not line:
                     continue
                 # ５列に分割. entry, feature, location, qualifier_key, qualifier_value
                 col_entry, col_feature, col_location, col_qkey, col_qvalue = line.split("\t", 4)
-                
+
                 if col_entry:
                     # 列1に値を持つ場合は新しいEntryを作成
                     current_entry = Entry(id=col_entry, name=col_entry)
@@ -151,38 +162,39 @@ class MSS:
                     # 列2に値を持つ場合は新しいFeatureを作成
                     current_feature = Feature(type=col_feature, id=f"feature_{feature_counter}")
                     feature_counter += 1
-                    current_entry.features.append(current_feature)
+                    if current_entry is not None:
+                        current_entry.features.append(current_feature)
 
                 if col_location:
                     # 列3に値を持つ場合はcurrent_featureのlocationを設定
-                    current_feature.location = col_location
+                    if current_feature is not None:
+                        current_feature.location = col_location
 
                 if col_qkey:
-                    # current_featureにqualifierを追加
-                    if col_qkey in BOOL_QUALIFIERS and col_qvalue == "":
-                        # 値が空の場合はTrueを追加
-                        current_feature.qualifiers.setdefault(col_qkey, []).append(True)
-                    else:
-                        current_feature.qualifiers.setdefault(col_qkey, []).append(col_qvalue)
+                    if current_feature is not None:
+                        # current_featureにqualifierを追加
+                        if col_qkey in BOOL_QUALIFIERS and col_qvalue == "":
+                            # 値が空の場合はTrueを追加
+                            current_feature.qualifiers.setdefault(col_qkey, []).append(True)
+                        else:
+                            current_feature.qualifiers.setdefault(col_qkey, []).append(col_qvalue)
         mss.parse_seq()
         return mss
 
     def parse_seq(self) -> None:
         """Parse the DDBJ sequence file"""
-        current_seq = None
-        
-        with open(self.seq_file, "r") as f:
-            entries = f.read()
-            entries = entries.replace("//\n", "") # remove trailing slash (// in DDBJ format)
-            entries = entries.split(">")
+        if self.seq_file is None:
+            raise ValueError("MSS instance must have seq_file")
+        with open(self.seq_file, "r", encoding="utf-8") as f:
+            entries_str = f.read()
+            entries_str = entries_str.replace("//\n", "")  # remove trailing slash (// in DDBJ format)
+            entries = entries_str.split(">")
             entries = entries[1:]  # remove the first empty entry
             for entry in entries:
                 lines = entry.split("\n")
                 seq_id = lines[0]
                 seq = "".join(lines[1:])
                 self.sequences.append(Sequence(id=seq_id, seq=seq))
-
-
 
     def to_tsv(self) -> str:
         """Convert the parsed data to TSV format"""
@@ -191,17 +203,17 @@ class MSS:
             tsv.extend(entry.to_tsv())
         return "\n".join(["\t".join(row) for row in tsv]) + "\n"
 
-    def to_fasta(self, width=60, separator=False) -> str:
+    def to_fasta(self, width: int = 60, separator: bool = False) -> str:
         """Convert the parsed sequence data to FASTA format"""
         fasta = []
         for sequence in self.sequences:
             fasta.append(sequence.to_fasta(width=width, separator=separator))
         return "".join(fasta)
-    
+
     def write(self, out_ann_file: Path, out_seq_file: Path) -> None:
-        with open(out_ann_file, "w") as f:
+        with open(out_ann_file, "w", encoding="utf-8") as f:
             f.write(self.to_tsv())
-        with open(out_seq_file, "w") as f:
+        with open(out_seq_file, "w", encoding="utf-8") as f:
             f.write(self.to_fasta(separator=True))
 
     def show(self) -> None:
@@ -209,53 +221,63 @@ class MSS:
         print("\nEntries:")
         for entry in self.entries:
             entry.show()
-        
+
         print("\nSequences:")
-        for seq_id, sequence in self.sequences.items():
+        for sequence in self.sequences:
+            seq_id = sequence.id
             print(f"\n{seq_id}:")
-            print(f"  Length: {len(sequence)}")
-            if len(sequence) > 10:
-                print(f"  Sequence: {sequence[:10]}...")
+            print(f"  Length: {len(sequence.seq)}")
+            if len(sequence.seq) > 10:
+                print(f"  Sequence: {sequence.seq[:10]}...")
             else:
-                print(f"  Sequence: {sequence}")
+                print(f"  Sequence: {sequence.seq}")
 
     @staticmethod
     def from_json(json_file: Path) -> "MSS":
         """
         JSONファイルを読み込みMSSインスタンスを作成する
         """
+        with open(json_file, encoding="utf-8") as f:
+            raw_data = json.load(f)
 
-        with open(json_file) as f:
-            data = json.load(f)
+        # === ddbj record v2 対応 ===
+        if raw_data["schema_version"] in ("0.1", "v1"):
+            record_v1_instance = DdbjRecordV1.model_validate(raw_data)
+        elif raw_data["schema_version"] in ("0.2", "v2"):
+            record_v2_instance = DdbjRecordV2.model_validate(raw_data)
+            record_v1_instance = v2_to_v1(record_v2_instance)
+        else:
+            raise ValueError(f"Unsupported schema_version: {raw_data['schema_version']}")
+        data = record_v1_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
 
-        mss = MSS(ann_file="", seq_file="")  # 空のMSSインスタンスを作成
-        
+        mss = MSS(ann_file=None, seq_file=None)  # 空のMSSインスタンスを作成
+
         # COMMON エントリーの作成
         common_entry = Entry(id="COMMON", name="COMMON")
         feature_counter = 1
-        
+
         # DBLINKの作成
         if "DBLINK" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="DBLINK"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["DBLINK"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["DBLINK"].items()}
             common_entry.features.append(feature)
             feature_counter += 1
-        
+
         # SUBMITTERの作成
         if "SUBMITTER" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="SUBMITTER"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["SUBMITTER"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["SUBMITTER"].items()}
             common_entry.features.append(feature)
             feature_counter += 1
-        
+
         # REFERENCEの作成
         if "REFERENCE" in data["COMMON"]:
             for ref in data["COMMON"]["REFERENCE"]:
@@ -263,11 +285,11 @@ class MSS:
                     id=f"feature_{feature_counter}",
                     type="REFERENCE"
                 )
-                feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                    for k, v in ref.items()}
+                feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                      for k, v in ref.items()}
                 common_entry.features.append(feature)
                 feature_counter += 1
-        
+
         # COMMENTの作成
         if "COMMENT" in data["COMMON"]:
             for comment in data["COMMON"]["COMMENT"]:
@@ -275,66 +297,66 @@ class MSS:
                     id=f"feature_{feature_counter}",
                     type="COMMENT"
                 )
-                feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                    for k, v in comment.items()}
+                feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                      for k, v in comment.items()}
                 common_entry.features.append(feature)
                 feature_counter += 1
-        
+
         # ST_COMMENTの作成
         if "ST_COMMENT" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="ST_COMMENT"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["ST_COMMENT"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["ST_COMMENT"].items()}
             common_entry.features.append(feature)
             feature_counter += 1
-        
+
         # DATEの作成
         if "DATE" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="DATE"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["DATE"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["DATE"].items()}
             common_entry.features.append(feature)
             feature_counter += 1
-        
+
         # DATATYPEの作成
         if "DATATYPE" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="DATATYPE"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["DATATYPE"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["DATATYPE"].items()}
             common_entry.features.append(feature)
             feature_counter += 1
-        
+
         # KEYWORDの作成
         if "KEYWORD" in data["COMMON"]:
             feature = Feature(
                 id=f"feature_{feature_counter}",
                 type="KEYWORD"
             )
-            feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                for k, v in data["COMMON"]["KEYWORD"].items()}
+            feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                  for k, v in data["COMMON"]["KEYWORD"].items()}
             common_entry.features.append(feature)
-        
+
         # common_entryを先頭に追加
         mss.entries.append(common_entry)
-        
+
         # COMMON_SOURCEの内容を取得
         common_source = data.get("COMMON_SOURCE", {})
-        
+
         # エントリーの作成
         for entry_data in data["ENTRIES"]:
             entry_id = entry_data["id"]
             entry = Entry(id=entry_id, name=entry_data["name"])
             features = []
-            
+
             # source featureを作成し、COMMON_SOURCEの内容を追加
             for feature_data in entry_data["features"]:
                 if feature_data["type"] == "source":
@@ -348,11 +370,11 @@ class MSS:
                     qualifiers = dict(common_source)
                     # エントリー固有のqualifierを追加
                     qualifiers.update({k: v for k, v in feature_data["qualifiers"].items()})
-                    feature.qualifiers = {k: [v] if not isinstance(v, list) else v 
-                                       for k, v in qualifiers.items()}
+                    feature.qualifiers = {k: [v] if not isinstance(v, list) else v
+                                          for k, v in qualifiers.items()}
                     features.append(feature)
                     break
-            
+
             # topologyがcircularの場合、TOPOLOGY featureを追加
             if entry_data.get("_topology") == "circular":
                 topology_feature = Feature(
@@ -362,7 +384,7 @@ class MSS:
                 )
                 topology_feature.qualifiers = {"circular": [True]}
                 features.append(topology_feature)
-            
+
             # その他のfeatureを追加
             for feature_data in entry_data["features"]:
                 feature_id = feature_data["id"]
@@ -374,29 +396,29 @@ class MSS:
                     )
                     feature.qualifiers = feature_data["qualifiers"]
                     features.append(feature)
-            
+
             # 作成したfeaturesをentryに設定
             entry.features = features
-            
+
             # シーケンスの作成
             sequence = Sequence(id=entry_id, seq=entry_data["sequence"])
             mss.sequences.append(sequence)
             mss.entries.append(entry)
-        
+
         return mss
 
-def test():
 
+def test() -> None:
     input_ann, input_seq = "examples/complete_genome.ann", "examples/complete_genome.fa"
     output_ann, output_seq = "complete_genome_test.ann", "complete_genome_test.fa"
     # MSSファイルをパース
-    mss = MSS.parse(input_ann, input_seq)
-    mss.write(output_ann, output_seq)
+    mss = MSS.parse(Path(input_ann), Path(input_seq))
+    mss.write(Path(output_ann), Path(output_seq))
     # print(mss.to_fasta(separator=True), end="")
     # 結果を表示
-    
+
     # 内容が一致することを確認
-    with open(input_ann, "r") as f_in, open(output_ann, "r") as f_out:
+    with open(input_ann, "r", encoding="utf-8") as f_in, open(output_ann, "r", encoding="utf-8") as f_out:
         assert f_out.read() == f_in.read()
 
     # テストファイルを削除
@@ -404,5 +426,6 @@ def test():
     os.remove("complete_genome_test.ann")
     os.remove("complete_genome_test.fa")
 
+
 if __name__ == "__main__":
-    test() 
+    test()

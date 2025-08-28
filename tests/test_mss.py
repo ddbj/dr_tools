@@ -1,5 +1,137 @@
+from pathlib import Path
+
 import pytest
 
-from dr_tools.MSS import test as test_mss
+from dr_tools.MSS import MSS, Entry, Feature, Sequence
 
-test_mss()
+HERE = Path(__file__).parent.resolve()
+REPO_ROOT = HERE.parent
+EXAMPLES_DIR = REPO_ROOT.joinpath("examples")
+EG_ANN_FILE = EXAMPLES_DIR.joinpath("complete_genome.ann")
+EG_SEQ_FILE = EXAMPLES_DIR.joinpath("complete_genome.fa")
+EG_COMPLETE_V1_JSON = EXAMPLES_DIR.joinpath("complete_genome.json")
+EG_COMPLETE_V2_JSON = EXAMPLES_DIR.joinpath("complete_genome.v2.json")
+EG_VRL_V1_JSON = EXAMPLES_DIR.joinpath("vrl_result.json")
+EG_VRL_V2_JSON = EXAMPLES_DIR.joinpath("vrl_result.v2.json")
+
+
+# === Sequence tests ===
+
+
+def test_sequence_to_fasta_default() -> None:
+    seq = Sequence(id="seq1", seq="ATGC" * 20)
+    fasta = seq.to_fasta()
+    lines = fasta.strip().split("\n")
+    assert lines[0] == ">seq1"
+    assert all(len(line) <= 60 for line in lines[1:])
+
+
+def test_sequence_to_fasta_custom_width() -> None:
+    seq = Sequence(id="seq2", seq="ATGC" * 10)
+    fasta = seq.to_fasta(width=4)
+    lines = fasta.strip().split("\n")
+    assert lines[0] == ">seq2"
+    assert all(len(line) == 4 for line in lines[1:])
+
+
+def test_sequence_to_fasta_separator() -> None:
+    seq = Sequence(id="seq3", seq="ATGC" * 5)
+    fasta = seq.to_fasta(separator=True)
+    assert fasta.endswith("//\n")
+
+
+# === Feature tests ===
+
+
+def test_feature_to_dict_valid_locus_tag() -> None:
+    f = Feature(type="gene", id=1, location="1..100", qualifiers={"locus_tag": ["abc_123"], "note": ["test"]})
+    d = f.to_dict()
+    assert d["locus_tag_id"] == "123"
+    assert "locus_tag" not in d["qualifiers"]
+
+
+def test_feature_to_dict_invalid_locus_tag() -> None:
+    f = Feature(type="gene", id=1, location="1..100", qualifiers={"locus_tag": ["abc123"]})
+    with pytest.raises(ValueError):
+        f.to_dict()
+
+
+def test_feature_to_tsv_bool_qualifier() -> None:
+    f = Feature(type="source", id=1, qualifiers={"pseudo": [True]})
+    tsv = f.to_tsv()
+    assert tsv[0] == ["", "source", "", "pseudo", ""]
+
+
+def test_feature_to_tsv_string_qualifier() -> None:
+    f = Feature(type="gene", id=1, location="1..100", qualifiers={"note": ["test"]})
+    tsv = f.to_tsv()
+    assert tsv[0] == ["", "gene", "1..100", "note", "test"]
+
+
+def test_feature_to_tsv_no_qualifier() -> None:
+    f = Feature(type="UTR", id=1, location="1..50", qualifiers={})
+    tsv = f.to_tsv()
+    assert tsv[0] == ["", "UTR", "1..50", "", ""]
+
+
+# === Entry tests ===
+
+
+def test_entry_to_tsv_with_features() -> None:
+    f1 = Feature(type="gene", id=1, location="1..100", qualifiers={"note": ["test"]})
+    entry = Entry(id="entry1", name="entry1", features=[f1])
+    tsv = entry.to_tsv()
+    assert tsv[0] == ["entry1", "gene", "1..100", "note", "test"]
+
+
+def test_entry_to_tsv_no_features() -> None:
+    entry = Entry(id="entry2", name="entry2", features=[])
+    tsv = entry.to_tsv()
+    assert not tsv
+
+
+# === MSS tests ===
+
+
+def test_mss_parse_with_example_files() -> None:
+    MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
+
+
+def test_mss_to_tsv() -> None:
+    mss = MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
+    tsv = mss.to_tsv()
+    with open(EG_ANN_FILE, "r", encoding="utf-8") as f:
+        original = f.read().strip()
+    assert tsv.strip() == original
+
+
+def test_mss_to_fasta() -> None:
+    mss = MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
+    fasta = mss.to_fasta(separator=True)
+    with open(EG_SEQ_FILE, "r", encoding="utf-8") as f:
+        original = f.read().strip()
+    assert fasta.strip() == original
+
+
+def test_mss_from_complete_v1_json() -> None:
+    mss = MSS.from_json(EG_COMPLETE_V1_JSON)
+    mss.to_tsv()
+    mss.to_fasta()
+
+
+def test_mss_from_complete_v2_json() -> None:
+    mss = MSS.from_json(EG_COMPLETE_V2_JSON)
+    mss.to_tsv()
+    mss.to_fasta()
+
+
+def test_mss_from_vrl_v1_json() -> None:
+    mss = MSS.from_json(EG_VRL_V1_JSON)
+    mss.to_tsv()
+    mss.to_fasta()
+
+
+def test_mss_from_vrl_v2_json() -> None:
+    mss = MSS.from_json(EG_VRL_V2_JSON)
+    mss.to_tsv()
+    mss.to_fasta()
