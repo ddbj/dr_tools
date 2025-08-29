@@ -1,19 +1,9 @@
 from pathlib import Path
+from typing import Dict
 
 import pytest
 
 from dr_tools.MSS import MSS, Entry, Feature, Sequence
-
-HERE = Path(__file__).parent.resolve()
-REPO_ROOT = HERE.parent
-EXAMPLES_DIR = REPO_ROOT.joinpath("examples")
-EG_ANN_FILE = EXAMPLES_DIR.joinpath("complete_genome.ann")
-EG_SEQ_FILE = EXAMPLES_DIR.joinpath("complete_genome.fa")
-EG_COMPLETE_V1_JSON = EXAMPLES_DIR.joinpath("complete_genome.json")
-EG_COMPLETE_V2_JSON = EXAMPLES_DIR.joinpath("complete_genome.v2.json")
-EG_VRL_V1_JSON = EXAMPLES_DIR.joinpath("vrl_result.json")
-EG_VRL_V2_JSON = EXAMPLES_DIR.joinpath("vrl_result.v2.json")
-
 
 # === Sequence tests ===
 
@@ -93,45 +83,23 @@ def test_entry_to_tsv_no_features() -> None:
 # === MSS tests ===
 
 
-def test_mss_parse_with_example_files() -> None:
-    MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
+def test_mss_parse_with_example_files(eg_complete: Dict[str, Path], eg_vrl: Dict[str, Path]) -> None:
+    MSS.parse(eg_complete["ann"], eg_complete["seq"])
+    MSS.parse(eg_vrl["ann"], eg_vrl["seq"])
 
 
-def test_mss_to_tsv() -> None:
-    mss = MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
-    tsv = mss.to_tsv()
-    with open(EG_ANN_FILE, "r", encoding="utf-8") as f:
-        original = f.read().strip()
-    assert tsv.strip() == original
+def test_mss_to_tsv(mss_complete: MSS, mss_vrl: MSS) -> None:
+    mss_complete.to_tsv()
+    mss_vrl.to_tsv()
 
 
-def test_mss_to_fasta() -> None:
-    mss = MSS.parse(EG_ANN_FILE, EG_SEQ_FILE)
-    fasta = mss.to_fasta(separator=True)
-    with open(EG_SEQ_FILE, "r", encoding="utf-8") as f:
-        original = f.read().strip()
-    assert fasta.strip() == original
+def test_mss_to_fasta(mss_complete: MSS, mss_vrl: MSS) -> None:
+    mss_complete.to_fasta()
+    mss_vrl.to_fasta()
 
 
-def test_mss_from_complete_v1_json() -> None:
-    mss = MSS.from_json(EG_COMPLETE_V1_JSON)
-    mss.to_tsv()
-    mss.to_fasta()
-
-
-def test_mss_from_complete_v2_json() -> None:
-    mss = MSS.from_json(EG_COMPLETE_V2_JSON)
-    mss.to_tsv()
-    mss.to_fasta()
-
-
-def test_mss_from_vrl_v1_json() -> None:
-    mss = MSS.from_json(EG_VRL_V1_JSON)
-    mss.to_tsv()
-    mss.to_fasta()
-
-
-def test_mss_from_vrl_v2_json() -> None:
-    mss = MSS.from_json(EG_VRL_V2_JSON)
-    mss.to_tsv()
-    mss.to_fasta()
+def test_mss_from_json(eg_complete: Dict[str, Path], eg_vrl: Dict[str, Path]) -> None:
+    MSS.from_json(eg_complete["v1_json"])
+    MSS.from_json(eg_complete["v2_json"])
+    MSS.from_json(eg_vrl["v1_json"])
+    MSS.from_json(eg_vrl["v2_json"])

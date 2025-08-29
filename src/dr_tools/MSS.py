@@ -105,7 +105,7 @@ class Entry:
     """
     MSS登録ファイルのEntry (1行目) の情報を格納する
     """
-    id: int | str
+    id: str
     name: str = ""
     features: List[Feature] = field(default_factory=list)
 
