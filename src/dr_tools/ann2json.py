@@ -274,6 +274,7 @@ def main() -> None:
     argparser.add_argument('seq_file', type=str, help='MSS Sequence file')
     argparser.add_argument('-o', '--out_json_file', type=str, help='Output json file. If not specified, output will written to stdout.', default=None)
     argparser.add_argument('-d', '--division', type=str, help='Division. Default is BCT for DFAST result or UNK', default=None)
+    argparser.add_argument('-r', '--record_version', type=str, choices=['v1', 'v2'], help='DDBJ Record version. Default is v2', default='v2')
 
     if len(sys.argv) == 1:
         argparser.print_help()
@@ -286,7 +287,7 @@ def main() -> None:
     out_json_file = args.out_json_file
 
     logging.info(f"ann_file: {ann_file}, seq_file: {seq_file}, out_json_file: {out_json_file}")  # pylint: disable=logging-fstring-interpolation
-    ann2json_for_dfast(ann_file, seq_file, out_json_file, division=args.division)
+    ann2json_for_dfast(ann_file, seq_file, out_json_file, division=args.division, record_version=args.record_version)
 
 
 if __name__ == "__main__":

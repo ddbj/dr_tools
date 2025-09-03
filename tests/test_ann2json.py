@@ -1,7 +1,9 @@
+import tempfile
 from pathlib import Path
 from typing import Dict
 
 from ddbj_record.schema.v1 import Common, CommonMeta, CommonSource
+from ddbj_record.schema.v2 import DdbjRecord as V2DdbjRecord
 
 from dr_tools.ann2json import (ann2json_for_dfast, common_to_dict,
                                infer_meta_from_ann, source_to_dict)
@@ -74,3 +76,29 @@ def test_ann2json_for_dfast_vrl(eg_vrl: Dict[str, Path]) -> None:
         out_json_file=Path("/dev/null"),
         record_version="v2",
     )
+
+
+def test_ann2_json_with_entry_comment(eg_complete: Dict[str, Path]) -> None:
+    ann_file = eg_complete["ann"].parent.joinpath("complete_genome_with_comment.ann")
+    seq_file = eg_complete["seq"]
+
+    with tempfile.NamedTemporaryFile() as tmp:
+        tmp_path = Path(tmp.name)
+
+        ann2json_for_dfast(
+            ann_file=ann_file,
+            seq_file=seq_file,
+            out_json_file=tmp_path,
+            record_version="v2",
+        )
+
+        json_str = tmp_path.read_text(encoding="utf-8")
+
+    record = V2DdbjRecord.model_validate_json(json_str)
+    has_entry_comment = False
+    for entry in record.sequences.entries:
+        if entry.comments:
+            has_entry_comment = True
+            break
+
+    assert has_entry_comment
