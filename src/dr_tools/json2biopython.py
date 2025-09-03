@@ -1,39 +1,41 @@
 #!/usr/bin/env python3
-
-import json
-from pathlib import Path
-import re
+import argparse
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+import re
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from Bio import SeqIO
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
-from Bio.SeqFeature import SeqFeature, FeatureLocation, Reference
-from Bio.SeqFeature import Location
 from Bio.Data.CodonTable import TranslationError
+from Bio.Seq import Seq
+from Bio.SeqFeature import Location, Reference, SeqFeature
+from Bio.SeqRecord import SeqRecord
 
+from dr_tools.json_utils import load_json_to_ddbj_record_instance
 
 logger = logging.getLogger(__name__)
+
 
 def collect_metadata(json_data: Dict[str, Any]) -> Dict[str, Any]:
     """
     JSONデータからメタデータを収集する
     """
     metadata = {}
-    
+
     # COMMONの情報を収集
     common = json_data.get("COMMON", {})
     metadata["common"] = common
-    
+
     # COMMON_SOURCEの情報を収集
     common_source = json_data.get("COMMON_SOURCE", {})
     metadata["common_source"] = common_source
-    
+
     return metadata
 
-def create_submitter(submitter_data: Dict[str, Any]) -> Reference|None:
+
+def create_submitter(submitter_data: Dict[str, Any]) -> Reference | None:
     """
     jsonのSUBMITTER情報をBioPythonのReferenceオブジェクトに変換する
     (GenBank形式では形式的に登録者情報はReferenceとして扱う)
@@ -55,7 +57,7 @@ def create_submitter(submitter_data: Dict[str, Any]) -> Reference|None:
             "street": "Yata 1111",
             "zip": "411-8540"
         },
- 
+
     """
     submitters = submitter_data.get("ab_name", [])
     consrtm = submitter_data.get("consrtm", "")
@@ -68,7 +70,7 @@ def create_submitter(submitter_data: Dict[str, Any]) -> Reference|None:
     state = submitter_data.get("state")
     city = submitter_data.get("city", "City")
     street = submitter_data.get("street", "Street Name")
-    zip = submitter_data.get("zip", "###-####")
+    zip_ = submitter_data.get("zip", "###-####")
     if submitters or consrtm:
         ref = Reference()
         ref.title = "Direct Submission"
@@ -86,7 +88,7 @@ def create_submitter(submitter_data: Dict[str, Any]) -> Reference|None:
         address = f"{street}, {city}"
         if state:
             address += f", {state}"
-        address = f"{address} {zip}, {country}"
+        address = f"{address} {zip_}, {country}"
         country = submitter_data.get("country")
         if url:
             address += f" URL:{url}"
@@ -95,7 +97,8 @@ def create_submitter(submitter_data: Dict[str, Any]) -> Reference|None:
     else:
         return None
 
-def create_reference(reference_data: Dict[str, Any]) -> Reference|None:
+
+def create_reference(reference_data: Dict[str, Any]) -> Reference | None:
     """
     ReferenceのjsonデータからRefereeceオブジェクトを作成する
     入力データの例:
@@ -128,6 +131,7 @@ def create_reference(reference_data: Dict[str, Any]) -> Reference|None:
         journal = reference_data.get("journal", "Journal Name")
         ref.journal = f"{journal} (In press, {year})"
     elif status == "Published":
+        journal = reference_data.get("journal", "Journal Name")
         volume = reference_data.get("volume", "vol#")
         pages = reference_data.get("start_page", "###")
         end_page = reference_data.get("end_page")
@@ -144,20 +148,22 @@ def create_reference(reference_data: Dict[str, Any]) -> Reference|None:
         ref.pubmed = pubmed
     return ref
 
-def create_definition(ff_definition, **kwargs):
+
+def create_definition(ff_definition: str, **kwargs: str) -> str:
     """
     @@で囲まれる部分を正規表現で抽出し、同名の変数で置換します。
-    
+
     :param text: 置換対象のテキスト
     :param kwargs: 置換する変数名とその値
     :return: 置換後のテキスト
     """
-    def replacer(match):
+    def replacer(match: re.Match[str]) -> str:
         placeholder = match.group(1)  # @@[ ]@@の中の文字列を取得
         return kwargs.get(placeholder, match.group(0))  # 変数があれば置換、なければそのまま
 
     # 正規表現で@@[ ]@@を検索し、置換処理を行う
     return re.sub(r'@@\[(.*?)\]@@', replacer, ff_definition)
+
 
 def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, List[str]], seq_length: int, topology: str) -> SeqFeature:
     """
@@ -165,7 +171,7 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
     """
     circular = topology == "circular"  # topoloygyがcircularの場合、true
     feature_location = Location.fromstring(location, length=seq_length, circular=circular)
-    
+
     # qualifiersの変換
     converted_qualifiers = {}
     for key, values in qualifiers.items():
@@ -176,14 +182,15 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
             converted_qualifiers[key] = [""]
         else:
             converted_qualifiers[key] = values
-    
+
     return SeqFeature(
         location=feature_location,
         type=feature_type,
         qualifiers=converted_qualifiers
     )
 
-def add_dbxrefs(record: SeqRecord, common_dict: dict):
+
+def add_dbxrefs(record: SeqRecord, common_dict: Dict[str, Any]) -> None:
     """
     DBLINK情報を追加する
     """
@@ -205,13 +212,12 @@ def add_dbxrefs(record: SeqRecord, common_dict: dict):
     if sra:
         record.dbxrefs.append("Sequence Read Archive:" + sra)
 
-def add_comment(record: SeqRecord, common_dict: dict):
+
+def add_comment(record: SeqRecord, common_dict: Dict[str, Any]) -> None:
     """
     ST_COMMENTおよびCOMMENT情報を追加する
 
     ST_COMMENTは以下の通り GenBankファイルでは
-
-
         "ST_COMMENT": {
             "tagset_id": "Genome-Assembly-Data",
             "Assembly Method": "HGAP v. x.x",
@@ -220,9 +226,8 @@ def add_comment(record: SeqRecord, common_dict: dict):
         },    
     GenBankファイルでは以下のような構造になっている
     'structured_comment': defaultdict(<class 'dict'>, {'Genome-Assembly-Data': {'Assembly Method': 'HGAP v. x.x', 'Genome Coverage': '60x', 'Sequencing Technology': 'Illumina MiSeq; PacBio RSII'}}
-        
-    COMMENTは複数記載できるのでjsonではリストになっている。list[dict[str, list[str]]]
 
+    COMMENTは複数記載できるのでjsonではリストになっている。list[dict[str, list[str]]]
         "COMMENT": [
             {
                 "line": ["Comment line1", "line2"]
@@ -231,8 +236,6 @@ def add_comment(record: SeqRecord, common_dict: dict):
                 "line": ["Annotated by DFAST https://dfast.ddbj.nig.ac.jp/"]
             }
         ],
-
-    
     """
     comments = common_dict.get("COMMENT", [])
     comment_str = "\n".join(["\n".join(comment["line"]) for comment in comments])
@@ -245,13 +248,15 @@ def add_comment(record: SeqRecord, common_dict: dict):
         structured_comment = {tagset_id: st_comment}
         record.annotations["structured_comment"] = structured_comment
 
-def set_date(record: SeqRecord, date: Optional[str] = None):
+
+def set_date(record: SeqRecord, date: Optional[str] = None) -> None:
     """
     日付を設定する
     """
     if date is None:
         date = datetime.now().strftime("%d-%b-%Y").upper()
     record.annotations["date"] = date
+
 
 def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     """
@@ -270,7 +275,7 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
         """
         pattern = r'\(pos:(?:complement\()?(\d+)\.\.(\d+)(?:\))?,aa:(\w+)\)'
         match = re.search(pattern, transl_except_value)
-        
+
         if match:
             start = match.group(1)
             end = match.group(2)
@@ -287,16 +292,16 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
         """
         try:
             return feature.translate(seq)
-        except TranslationError as e:
+        except TranslationError:
             try:
                 # start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
                 # table = int(feature.qualifiers.get("transl_table", [1])[0])
                 return feature.translate(seq, cds=False).rstrip("*")
-            except TranslationError as e:
-                logger.warning("TranslationError: Cannot translate the feature", feature.id)
+            except TranslationError:
+                logger.warning("TranslationError: Cannot translate the feature: %s", feature.id)
                 logger.warning(feature)
                 return None
-    dict_aa = {"Sec": "U", "Pyl": "O"} # {"TERM": "*"}  # TERM not implemented
+    dict_aa = {"Sec": "U", "Pyl": "O"}  # {"TERM": "*"}  # TERM not implemented
 
     # transl_except が記載されている場合、その箇所を @@@ に置換して CDS を切り出し、
     # CDS とアミノ酸配列中での位置を確認しておく
@@ -312,7 +317,7 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
         cds = feature.location.extract(seq)
         start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
 
-         # CDSとアミノ酸配列中でのtranl_exceptの開始位置 (0-based)
+        # CDSとアミノ酸配列中でのtranl_exceptの開始位置 (0-based)
         except_index_nuc = cds.index("@@@")
         except_index_aa = (except_index_nuc - start_offset) // 3
 
@@ -330,14 +335,17 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     if translation:
         feature.qualifiers["translation"] = [str(translation)]
 
+
 def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
     """
     JSONデータをBioPythonのSeqRecordオブジェクトのリストに変換する
     """
-    with open(json_file) as f:
-        json_data = json.load(f)
+    # === ddbj record v2 対応 ===
+    record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
+    json_data = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+
     records = []
-    
+
     common = json_data.get("COMMON", {})
 
     # COMMON_SOURCE, COMMON_METAの内容を取得
@@ -348,7 +356,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
     for entry_data in json_data["ENTRIES"]:
         # シーケンスの作成
         seq = Seq(entry_data["sequence"])
-        
+
         # SeqRecordの作成
         record = SeqRecord(
             seq=seq,
@@ -356,7 +364,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
             name=entry_data["name"],
             description="test"
         )
-        
+
         # molecule_typeの設定
         mol_type_value = common_source.get("mol_type", "DNA")
         if "DNA" in mol_type_value:
@@ -365,7 +373,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
             record.annotations["molecule_type"] = "RNA"
         else:
             raise ValueError(f"Invalid molecule_type: {mol_type_value}. Must contain 'DNA' or 'RNA'.")
-        
+
         # Division
         division = common_meta.get("division", "UNK")
         record.annotations["data_file_division"] = division
@@ -373,7 +381,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
         # topologyの設定
         topology = entry_data.get("topology", "linear")
         record.annotations["topology"] = topology
- 
+
         # organismの設定
         organism = common_source.get("organism", "Unknown organism")
         record.annotations["organism"] = organism
@@ -389,7 +397,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
 
         # commentの設定
         add_comment(record, common)
-        
+
         # dateの設定
         set_date(record, common_meta.get("date"))
 
@@ -407,7 +415,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
         seq_length = len(seq)
 
         features = []
-        
+
         # source featureの作成
         for feature_data in entry_data["features"]:
             if feature_data["type"] == "source":
@@ -443,24 +451,18 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
 
                 features.append(feature)
 
-        
         # featuresをrecordに設定
         record.features = features
         records.append(record)
-    
+
     return records
 
 
-
-def json2gbk_main():
+def json2gbk_main() -> None:
     """
     JSONファイルをGenBankファイルに変換する
     出力 (-o, --output_file) が指定されていない場合は、標準出力に出力する
     """
-
-    import sys
-    import argparse
-
     parser = argparse.ArgumentParser(description='Convert JSON file to GenBank file')
     parser.add_argument('input_file', type=str, help='Input JSON file')
     parser.add_argument('-o', '--output_file', type=str, help='Output GenBank file', default=None)
@@ -468,7 +470,7 @@ def json2gbk_main():
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
-    
+
     args = parser.parse_args()
     input_file = args.input_file
     output_file = args.output_file
@@ -477,17 +479,17 @@ def json2gbk_main():
     # with open(input_file) as f:
     # # with open("draft_genome.json") as f:
     #     json_data = json.load(f)
-    
+
     # JSONデータをSeqRecordに変換
     records = json_to_seqrecords(input_file)
-    
+
     # GenBank形式で出力
     if output_file:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             SeqIO.write(records, f, "genbank")
     else:
         for r in records:
             print(r.format("genbank"))
 
 # if __name__ == "__main__":
-#     json2gbk_main() 
+#     json2gbk_main()

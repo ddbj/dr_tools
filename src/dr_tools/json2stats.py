@@ -1,15 +1,19 @@
-import json
-from pathlib import Path
-from typing import Dict, Tuple, List
-from collections import Counter
-
-from Bio.SeqFeature import Location
-
 """
 JSON ファイルを読み込んで、ゲノムサイズ、遺伝子数などの統計情報を取得する
 """
+import argparse
+import json
+import sys
+from collections import Counter
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-def count_features(entries: List) -> Dict:
+from Bio.SeqFeature import Location
+
+from dr_tools.json_utils import load_json_to_ddbj_record_instance
+
+
+def count_features(entries: List[Dict[str, Any]]) -> Dict[str, int]:
     """
     エントリーリストから、各種遺伝子の数をカウントする
     """
@@ -18,7 +22,8 @@ def count_features(entries: List) -> Dict:
     feature_counts = Counter(featute_types)
     return dict(feature_counts)
 
-def get_genome_stats(entries: List) -> Dict:
+
+def get_genome_stats(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     エントリーリストからゲノムサイズ、N数のカウント等を行う
     """
@@ -38,13 +43,14 @@ def get_genome_stats(entries: List) -> Dict:
     }
     return D
 
-def get_N50(entries: List) -> int:
+
+def get_N50(entries: List[Dict[str, Any]]) -> Optional[int]:
     """
     エントリーリストからN50を計算する
     """
-    def _get_length(entry: Dict) -> int:
+    def _get_length(entry: Dict[str, Any]) -> int:
         return entry.get("length") or len(entry["sequence"])
-    
+
     seq_lengths = [_get_length(entry) for entry in entries]
     seq_lengths.sort(reverse=True)
     total_length = sum(seq_lengths)
@@ -55,12 +61,15 @@ def get_N50(entries: List) -> int:
         if cum_length >= half_length:
             return length
 
-def get_coding_ratio(entries: List) -> float:
+    return None
+
+
+def get_coding_ratio(entries: List[Dict[str, Any]]) -> float:
     """
     エントリーリストからコーディング領域の割合を計算する
     CDSがオーバーラップしている可能性もあるが、考慮していないので簡易的な実装
     """
-    def _get_feature_length(feature, seq_length, circular):
+    def _get_feature_length(feature: Dict[str, Any], seq_length: int, circular: bool) -> int:
         return len(Location.fromstring(feature["location"], seq_length, circular))
 
     coding_length = 0
@@ -74,11 +83,15 @@ def get_coding_ratio(entries: List) -> float:
     coding_ratio = coding_length / total_length
     return coding_ratio
 
-def json2stats(json_file: Path) -> Dict:
+
+def json2stats(json_file: Path) -> Dict[str, Any]:
     """
     JSON ファイルから統計情報を取得する
     """
-    json_dat = json.load(open(json_file))
+    # === ddbj record v2 対応 ===
+    record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
+    json_dat = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+
     entries = json_dat.get("ENTRIES", [])
     genome_stats = get_genome_stats(entries)
     feature_stats = count_features(entries)
@@ -92,12 +105,13 @@ def json2stats(json_file: Path) -> Dict:
 
     return stats
 
-def json2stats_for_dfast(json_file: Path, format=False, output_file: Path | None =None) -> Dict | None:
+
+def json2stats_for_dfast(json_file: Path, format_: bool = False, output_file: Path | None = None) -> Dict[str, Any] | None:
     """
     DFAST 用の統計情報を取得する
     format=True の場合、書式を整える
     Falseの場合、数値データとして返す
-    """
+
     # DFAST の統計情報の表示名　下記のラベルに変更
     {
         'genome_size': 'Total Length (bp)',
@@ -110,10 +124,11 @@ def json2stats_for_dfast(json_file: Path, format=False, output_file: Path | None
         'rRNA': 'No. of rRNA',
         'tmRNA': 'No. of tRNA/tmRNA',
         'repeat_region': 'No. of CRISPRS',
-        'coding_ratio':'Coding Ratio (%)'
+        'coding_ratio': 'Coding Ratio (%)'
     }
+    """
     stats = json2stats(json_file)
-    if not format:
+    if not format_:
         D = {
             'Total Length (bp)': stats['genome_size'],
             'No. of Sequences': stats['number_of_sequences'],
@@ -138,18 +153,18 @@ def json2stats_for_dfast(json_file: Path, format=False, output_file: Path | None
             'Coding Ratio (%)': f"{stats['coding_ratio']*100:.1f}%"
         }
     if output_file:
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             json.dump(D, f, indent=4)
     else:
         return D
 
-def json2stats_for_dfast_main():
+    return None
+
+
+def json2stats_for_dfast_main() -> None:
     """
     json2stats_for_dfast のコマンドラインインターフェース
     """
-    import argparse
-    import sys
-
     # 引数のパース
     parser = argparse.ArgumentParser(description='Create statistics from JSON file for DFAST')
     parser.add_argument('json_file', type=str, help='JSON file')
@@ -163,9 +178,10 @@ def json2stats_for_dfast_main():
 
     args = parser.parse_args()
 
-    stats = json2stats_for_dfast(args.json_file, format=args.format, output_file=args.output)
+    stats = json2stats_for_dfast(args.json_file, format_=args.format, output_file=args.output)
     if stats:
         print(json.dumps(stats, indent=4))
+
 
 if __name__ == "__main__":
     json2stats_for_dfast_main()

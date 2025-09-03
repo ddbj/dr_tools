@@ -65,9 +65,13 @@
       }
     ],
     "comments": [
-      "Comment line1",
-      "line2",
-      "Annotated by DFAST https://dfast.ddbj.nig.ac.jp/"
+      [
+        "Comment line1",
+        "line2"
+      ],
+      [
+        "Annotated by DFAST https://dfast.ddbj.nig.ac.jp/"
+      ]
     ],
     "trad_submission_category": "GNM",
     "division": "BCT",
@@ -131,9 +135,14 @@
         "type": "chromosome",
         "topology": "circular",
         "sequence": "ttatccacaa...",
-        "location": "1..2277985",
-        "definition": [
-          "@@[organism]@@ @@[strain]@@ DNA, complete genome"
+        "source_features": [
+          {
+            "id": "feature_8",
+            "location": "1..2277985",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ DNA, complete genome"
+            ]
+          }
         ]
       },
       {
@@ -142,9 +151,14 @@
         "type": "plasmid",
         "topology": "circular",
         "sequence": "atgtatgatt...",
-        "location": "1..81630",
-        "definition": [
-          "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+        "source_features": [
+          {
+            "id": "feature_2270",
+            "location": "1..81630",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+            ]
+          }
         ]
       },
       {
@@ -153,9 +167,14 @@
         "type": "plasmid",
         "topology": "linear",
         "sequence": "atgacaaaat...",
-        "location": "1..40971",
-        "definition": [
-          "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+        "source_features": [
+          {
+            "id": "feature_2374",
+            "location": "1..40971",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+            ]
+          }
         ]
       }
     ]

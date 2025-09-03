@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ddbj_record.converter.v2_to_v1 import v2_to_v1
-from ddbj_record.schema.v1 import DdbjRecord as DdbjRecordV1
-from ddbj_record.schema.v2 import DdbjRecord as DdbjRecordV2
+from dr_tools.json_utils import load_json_to_ddbj_record_instance
 
 BOOL_QUALIFIERS = ["pseudo", "environmental_sample", "ribosomal_slippage", "circular_RNA",
                    "proviral", "focus", "germline", "macronuclear", "circular"]  # circular is only for topology
@@ -237,18 +234,9 @@ class MSS:
         """
         JSONファイルを読み込みMSSインスタンスを作成する
         """
-        with open(json_file, encoding="utf-8") as f:
-            raw_data = json.load(f)
-
         # === ddbj record v2 対応 ===
-        if raw_data["schema_version"] in ("0.1", "v1"):
-            record_v1_instance = DdbjRecordV1.model_validate(raw_data)
-        elif raw_data["schema_version"] in ("0.2", "v2"):
-            record_v2_instance = DdbjRecordV2.model_validate(raw_data)
-            record_v1_instance = v2_to_v1(record_v2_instance)
-        else:
-            raise ValueError(f"Unsupported schema_version: {raw_data['schema_version']}")
-        data = record_v1_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+        record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
+        data = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
 
         mss = MSS(ann_file=None, seq_file=None)  # 空のMSSインスタンスを作成
 
