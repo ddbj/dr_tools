@@ -1,25 +1,27 @@
 # DFAST Record Tools (dr_tools)
+
 Python module for handling MSS format and its json data model
 
 ## Installation
 
-```
+```bash
 # installation
 pip install "git+https://github.com/ddbj/dr_tools.git"
 ```
 
-Requirements:  
+Requirements:
+
 - Python >= 3.9
 - Biopython >= 1.82
 
-
 ## Usage
-```
+
+```bash
 from dr_tools import drt_ann2json, drt_json2ann, json_to_seqrecords, drt_json2fasta, drt_json2stats
 
 # DFAST が生成した MSS 登録ファイル (ann, seq) を DFAST results JSON に変換
 # DFAST 以外の MSS 登録ファイルにも今後対応予定
-drt_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "dfast_results.json")
+drt_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "ddbj_record.json")
 
 # JSON ファイルを MSS 登録ファイル (ann, seq) に変換
 # out_dir はデフォルトではカレントディレクトリ
@@ -38,7 +40,7 @@ with open("out.gbk", "w") as f:
 
 # JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
 # 出力ファイル名: genome.fna, cds.fna, misc_rnas.fna, protein.faa
-drt_json2fasta("dfast_results.json", "out_dir")
+drt_json2fasta("ddbj_record.json", "out_dir")
 
 # JSON ファイルからゲノムサイズ、遺伝子数等の統計情報を取得し JSON で保存
 # format=Falaseの場合、数値として保存
@@ -50,7 +52,7 @@ drt_json2stats("complete_genome.json", format=True, output_file="genome_stats.js
 # JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
 from dr_tools.json_utils import get_feature_json
-data = get_feature_json("dfast_results.json", "feature_11")
+data = get_feature_json("ddbj_record.json", "feature_11")
 # 出力例:
 print(json.dumps(data, indent=2))
 {
@@ -75,10 +77,9 @@ print(json.dumps(data, indent=2))
 
 その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス、`dr_tools.json_utils` に JSON データを扱うための関数を定義している。
 
-
-
 ## Scripts
-```
+
+```bash
 drt_ann2json [-o out.json] input_mss_file.ann input_mss_file.fa
 drt_json2ann [-O out_dir] [-o out_prefix] input_file.json
 drt_json2gbk [-o out.gbk] input_file.json
@@ -86,10 +87,18 @@ drt_json2fasta [-O out_dir] input_file.json
 drt_json2stats_for_dfast [-o out.json] [-f] input_file.json
 ```
 
-
 ## Development
-```
+
+```bash
 pip install -e .[dev]
-or 
+# or
 pip install --break-system-packages -e .[dev]
+```
+
+Docker env:
+
+```bash
+docker compose up -d --build
+# then
+docker compose exec python-dev bash
 ```

@@ -1,19 +1,22 @@
-# Ubuntu 24.04 LTSをベースイメージとして使用
-FROM ubuntu:24.04
+FROM python:3.12-bookworm
 
 # パッケージリストの更新とPythonのインストール
-RUN apt-get update && \
-    apt-get install -y \
-    python3 \
-    python3-pip \
-    curl less \
-    && rm -rf /var/lib/apt/lists/* && \
+RUN apt update && \
+    apt install -y \
+    curl \
+    less && \
+    rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/python3 /usr/bin/python
-
-# biopythonのインストール
-RUN pip3 install --break-system-packages biopython==1.83
 
 RUN alias ll='ls -l'
 
+# biopythonのインストール
+RUN python3 -m pip install --break-system-packages biopython==1.83
+
+WORKDIR /dr_tools
+COPY . .
+RUN python3 -m pip install -e .[dev]
+
+ENTRYPOINT [ "" ]
 # Pythonのバージョン確認用コマンド
-CMD ["python3", "--version"] 
+CMD ["python3", "--version"]

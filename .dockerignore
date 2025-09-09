@@ -1,0 +1,9 @@
+# Ignore everything
+**
+
+!examples
+!LICENSE
+!pyproject.toml
+!README.md
+!src
+!tests

@@ -1,10 +1,8 @@
-version: '3'
-
 services:
   python-dev:
     build: .
     volumes:
       - .:/dr_tools
     working_dir: /dr_tools
-    tty: true
-    command: /bin/bash
+    init: true
+    command: ["sleep", "infinity"]
