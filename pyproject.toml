@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = [{ name = "nigyta", email = "yt@nig.ac.jp" }]
 description = "Utility tools for handling DFAST Record JSON and DDBJ MSS Files"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -13,6 +13,7 @@ classifiers = [
 dependencies = [
     "requests ~= 2.23.0",
     "ddbj-record @ git+https://github.com/ddbj/ddbj-record-specifications.git@main",
+    "biopython>=1.86",
 ]
 license = { text = "MIT" }
 
@@ -30,6 +31,9 @@ drt_json2stats_for_dfast = "dr_tools.json2stats:json2stats_for_dfast_main"
 [project.urls]
 "Homepage" = "https://github.com/ddbj/dr_tools"
 "Bug Tracker" = "https://github.com/ddbj/dr_tools/issues"
+
+[tool.uv]
+package = true
 
 [tool.setuptools.package-data]
 dr_tools = ["py.typed"]
