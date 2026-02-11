@@ -11,7 +11,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "requests ~= 2.23.0",
     "ddbj-record @ git+https://github.com/ddbj/ddbj-record-specifications.git@main",
     "biopython>=1.86",
 ]
