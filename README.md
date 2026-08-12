@@ -12,7 +12,7 @@ pip install "git+https://github.com/ddbj/dr_tools.git"
 Requirements:
 
 - Python >= 3.10
-- Biopython >= 1.86
+- Biopython >= 1.84
 
 ## Usage
 

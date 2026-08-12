@@ -332,7 +332,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "biopython", specifier = ">=1.86" },
+    { name = "biopython", specifier = ">=1.84" },
     { name = "build", marker = "extra == 'dev'" },
     { name = "ddbj-record", git = "https://github.com/ddbj/ddbj-record-specifications.git?rev=main" },
     { name = "hypothesis", marker = "extra == 'dev'" },

@@ -12,7 +12,7 @@ classifiers = [
 ]
 dependencies = [
     "ddbj-record @ git+https://github.com/ddbj/ddbj-record-specifications.git@main",
-    "biopython>=1.86",
+    "biopython>=1.84",
 ]
 license = { text = "MIT" }
 
