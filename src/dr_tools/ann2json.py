@@ -171,27 +171,27 @@ def infer_meta_from_ann(mss: MSS) -> Tuple[Dict[str, Dict[str, str]], SeqInfo]:
         common_meta["locus_tag_prefix"] = locus_tag_prefix
 
     # seq_infoの決定
-    # gnm (complete) の場合、 seq_type, seq_topology
-    # wgs (draft) の場合、不要
+    # seq_type は ff_definition の文言から読むので、書式が決まっている gnm (complete) でのみ判定する
+    # seq_topology は TOPOLOGY 行の有無だけで決まる。wgs (draft) の配列も circular になりうるので、
+    # 登録区分によらず読む (ここで落とすと ann -> json -> ann で TOPOLOGY 行が消える)
     seq_info: SeqInfo = {}
-    if trad_submission_category == "GNM":
-        for entry in mss.entries:
-            source_or_tpoology = [feature for feature in entry.features if feature.type in ["source", "TOPOLOGY"]]
-            seq_topology, seq_type = "linear", "other"
-            for feature in source_or_tpoology:
-                if feature.type == "source":
-                    ff_definition: str = feature.qualifiers.get("ff_definition", [""])[0]  # type: ignore
-                    if "plasmid" in ff_definition:
-                        seq_type = "plasmid"
-                    elif "unplaced sequence" in ff_definition:
-                        seq_type = "unplaced"
-                    elif "complete genome" in ff_definition:
-                        seq_type = "chromosome"
+    for entry in mss.entries:
+        source_or_topology = [feature for feature in entry.features if feature.type in ["source", "TOPOLOGY"]]
+        seq_topology, seq_type = "linear", "other"
+        for feature in source_or_topology:
+            if feature.type == "source" and trad_submission_category == "GNM":
+                ff_definition: str = feature.qualifiers.get("ff_definition", [""])[0]  # type: ignore
+                if "plasmid" in ff_definition:
+                    seq_type = "plasmid"
+                elif "unplaced sequence" in ff_definition:
+                    seq_type = "unplaced"
+                elif "complete genome" in ff_definition:
+                    seq_type = "chromosome"
 
-                # seq_topologyの決定 TOPOLOGY featureが記載されていればcircularとする
-                if feature.type == "TOPOLOGY" and "circular" in feature.qualifiers:
-                    seq_topology = "circular"
-            seq_info[entry.id] = {"seq_type": seq_type, "seq_topology": seq_topology}
+            # seq_topologyの決定 TOPOLOGY featureが記載されていればcircularとする
+            if feature.type == "TOPOLOGY" and "circular" in feature.qualifiers:
+                seq_topology = "circular"
+        seq_info[entry.id] = {"seq_type": seq_type, "seq_topology": seq_topology}
 
     return {"COMMON_META": common_meta}, seq_info
 

@@ -7,6 +7,7 @@ from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
 from ddbj_record.converter.v1_to_v2 import v1_to_v2
 from ddbj_record.converter.v2_to_v1 import v2_to_v1
+from ddbj_record.schema import normalize_schema_version
 from ddbj_record.schema.v1 import DdbjRecord as DdbjRecordV1
 from ddbj_record.schema.v2 import DdbjRecord as DdbjRecordV2
 
@@ -17,18 +18,27 @@ def load_json_to_ddbj_record_instance(
 ) -> DdbjRecordV1 | DdbjRecordV2:
     """
     JSONファイルを読み込み、DdbjRecordインスタンスを生成して返す
+
+    schema_version は ddbj_record の normalize_schema_version でメジャー版に畳む。
+    ddbj_record は書き出しの際に schema_version を最新のマイナー版 ("v1.0", "v2.2" 等)
+    へ正規化するので、旧来の表記 ("0.1", "v1") だけを受け付けると
+    dr_tools が書いた JSON を dr_tools 自身が読めなくなる。
     """
     with open(json_file, encoding="utf-8") as f:
         raw_data = json.load(f)
 
-    if raw_data["schema_version"] in ("0.1", "v1"):
+    schema_version = raw_data.get("schema_version", "")
+    normalized = normalize_schema_version(schema_version) if isinstance(schema_version, str) else None
+    major_version = normalized.split(".")[0] if normalized else None
+
+    if major_version == "v1":
         record_v1_instance = DdbjRecordV1.model_validate(raw_data)
         if to_record_version == "v1":
             return record_v1_instance
         else:
             record_v2_instance = v1_to_v2(record_v1_instance)
             return record_v2_instance
-    elif raw_data["schema_version"] in ("0.2", "v2"):
+    elif major_version == "v2":
         record_v2_instance = DdbjRecordV2.model_validate(raw_data)
         if to_record_version == "v2":
             return record_v2_instance
@@ -36,7 +46,7 @@ def load_json_to_ddbj_record_instance(
             record_v1_instance = v2_to_v1(record_v2_instance)
             return record_v1_instance
     else:
-        raise ValueError(f"Unsupported schema_version: {raw_data['schema_version']}")
+        raise ValueError(f"Unsupported schema_version: {schema_version}")
 
 
 def get_feature_and_entry_json(json_dat: Dict[str, Any], feature_id: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -92,7 +102,7 @@ def set_locus_tag(feature_json: Dict[str, Any], locus_tag_prefix: str) -> None:
         feature_json["qualifiers"]["locus_tag"] = [locus_tag]
 
 
-def json_to_seqfeature(feature_json: Dict[str, Any], entry_json: Dict[str, Any]) -> SeqFeature:
+def json_to_seqfeature(feature_json: Dict[str, Any], entry_json: Dict[str, Any]) -> Tuple[SeqFeature, Seq]:
     """
     JSON で書かれた featureを BioPython SeqFeature object に変換し、
     そのオブジェクトと、その feature location が指す配列を Seq objectとして返す
@@ -111,5 +121,5 @@ def json_to_seqfeature(feature_json: Dict[str, Any], entry_json: Dict[str, Any])
     feature = create_seqfeature(feature_type, feature_location_str, qualifiers, seq_length, topology)
     if feature_type == "CDS":
         add_translate_qualifier(feature, seq)
-    nucleotide = feature.extract(seq)
+    nucleotide: Seq = feature.extract(seq)  # type: ignore[no-untyped-call]
     return feature, nucleotide

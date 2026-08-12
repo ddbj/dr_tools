@@ -17,7 +17,7 @@ dependencies = [
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = ["build", "twine", "pytest", "pytest-mock"]
+dev = ["build", "twine", "pytest", "pytest-mock", "hypothesis", "mypy"]
 
 [project.scripts]
 drt_hello = "dr_tools:hello"

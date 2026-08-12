@@ -3,7 +3,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from dr_tools.json_utils import load_json_to_ddbj_record_instance
+from dr_tools.json_utils import (get_locus_tag_prefix,
+                                 load_json_to_ddbj_record_instance,
+                                 set_locus_tag)
 
 BOOL_QUALIFIERS = ["pseudo", "environmental_sample", "ribosomal_slippage", "circular_RNA",
                    "proviral", "focus", "germline", "macronuclear", "circular"]  # circular is only for topology
@@ -68,18 +70,27 @@ class Feature:
         return d
 
     def to_tsv(self) -> List[List[str]]:
-        # ５列TSV形式に変換
+        """
+        ５列TSV形式に変換する
+
+        値を持たない qualifier の扱いは 2 通りある。
+        - bool の qualifier (/pseudo や TOPOLOGY の /circular) は、値の列を空にした行として出す
+        - 値が空文字列の qualifier は行ごと落とす。MSS では値の無い qualifier は
+          上の bool 側だけを指すので、空文字列の行を出すと DDBJ 側で値なしの
+          qualifier として解釈されてしまう
+        """
         tsv = []
         for key, values in self.qualifiers.items():
             for value in values:
                 if isinstance(value, bool):
                     tsv.append(["", "", "", key, ""])
-                else:
+                elif value != "":
                     tsv.append(["", "", "", key, value])
-        # location がある場合はlocationを追加 (MSSファイルではlocationを持たないfeatureもある e.g. TOPOLOGYやDDBJ登録に関するもの)
+        if len(tsv) == 0:
+            # 出力する qualifier を持たない feature がある (UTR 等)。location 用に空行を置く
+            tsv.append(["", "", "", "", ""])
+        # location を持たない feature もある (TOPOLOGY や DDBJ 登録に関するもの)
         if self.location:
-            if len(tsv) == 0:
-                tsv.append(["", "", "", "", ""])  # qualifierを持たないfeatureがある (UTR等)。その場合は空行を追加
             tsv[0][2] = self.location
         tsv[0][1] = self.type
         return tsv
@@ -101,9 +112,13 @@ class Feature:
 class Entry:
     """
     MSS登録ファイルのEntry (1行目) の情報を格納する
+
+    id は record JSON 上の識別子、name は利用者が付けた配列名。
+    MSS 登録ファイルと FASTA に書き出す識別子は name に統一する
+    (mss.ann の1列目、mss.fa のヘッダ、genome.fna のヘッダ)。
     """
     id: str
-    name: str = ""
+    name: str
     features: List[Feature] = field(default_factory=list)
 
     def to_tsv(self) -> List[List[str]]:
@@ -112,7 +127,7 @@ class Entry:
         for feature in self.features:
             tsv.extend(feature.to_tsv())
         if tsv:
-            tsv[0][0] = str(self.id)
+            tsv[0][0] = self.name
         return tsv
 
     def show(self) -> None:
@@ -339,11 +354,17 @@ class MSS:
         # COMMON_SOURCEの内容を取得
         common_source = data.get("COMMON_SOURCE", {})
 
+        # record では locus_tag を prefix と id に分けて持つので、MSS に書き出す前に組み立て直す
+        locus_tag_prefix = get_locus_tag_prefix(data)
+
         # エントリーの作成
         for entry_data in data["ENTRIES"]:
             entry_id = entry_data["id"]
             entry = Entry(id=entry_id, name=entry_data["name"])
             features = []
+
+            for feature_data in entry_data["features"]:
+                set_locus_tag(feature_data, locus_tag_prefix)
 
             # source featureを作成し、COMMON_SOURCEの内容を追加
             for feature_data in entry_data["features"]:
@@ -364,7 +385,7 @@ class MSS:
                     break
 
             # topologyがcircularの場合、TOPOLOGY featureを追加
-            if entry_data.get("_topology") == "circular":
+            if entry_data.get("topology") == "circular":
                 topology_feature = Feature(
                     id=f"topology_{entry_id}",
                     type="TOPOLOGY",
@@ -388,8 +409,8 @@ class MSS:
             # 作成したfeaturesをentryに設定
             entry.features = features
 
-            # シーケンスの作成
-            sequence = Sequence(id=entry_id, seq=entry_data["sequence"])
+            # シーケンスの作成 (FASTA のヘッダは ann の1列目と揃えて entry.name を使う)
+            sequence = Sequence(id=entry.name, seq=entry_data["sequence"])
             mss.sequences.append(sequence)
             mss.entries.append(entry)
 

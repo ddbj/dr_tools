@@ -14,7 +14,7 @@ def json_to_gene_seq(feature_json: Dict[str, Any], entry_json: Dict[str, Any]) -
     description の書式は "{locus_tag} {product} [type={product}] [location={location}]"
     実行前には set_locus_tag で locus_tag クオリファイアを設定しておくこと
     """
-    seq_feature, nucleotide = json_to_seqfeature(feature_json, entry_json)
+    seq_feature, nucleotide_seq = json_to_seqfeature(feature_json, entry_json)
     feature_type = seq_feature.type
     locus_tag = seq_feature.qualifiers["locus_tag"][0]
     product = seq_feature.qualifiers.get("product", ["unknown product"])[0]
@@ -24,12 +24,12 @@ def json_to_gene_seq(feature_json: Dict[str, Any], entry_json: Dict[str, Any]) -
         translate = seq_feature.qualifiers.get("translation", [""])[0]
     else:
         translate = ""
-    nucleotide = str(nucleotide).upper()
+    nucleotide = str(nucleotide_seq).upper()
     if gene:
         description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_json['name']}:{location}]"
     else:
         description = f"{locus_tag} {product} [type={feature_type}] [location={entry_json['name']}:{location}]"
-    return description, nucleotide, translate
+    return description, nucleotide, str(translate)
 
 
 def json2fasta(json_file: Path, out_dir: Path) -> None:
