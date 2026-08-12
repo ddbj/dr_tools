@@ -5,7 +5,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from Bio import SeqIO
 from Bio.Data.CodonTable import TranslationError
@@ -14,6 +14,7 @@ from Bio.SeqFeature import Location, Reference, SeqFeature
 from Bio.SeqRecord import SeqRecord
 
 from dr_tools.json_utils import load_json_to_ddbj_record_instance
+from dr_tools.translation import translate_cds_with_transl_except
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def create_submitter(submitter_data: Dict[str, Any]) -> Reference | None:
     street = submitter_data.get("street", "Street Name")
     zip_ = submitter_data.get("zip", "###-####")
     if submitters or consrtm:
-        ref = Reference()
+        ref = Reference()  # type: ignore[no-untyped-call]
         ref.title = "Direct Submission"
         if len(submitters) == 1:
             ref.authors = submitters[0]
@@ -119,7 +120,7 @@ def create_reference(reference_data: Dict[str, Any]) -> Reference | None:
     if title is None:
         return None
     status = reference_data.get("status", "Unpublished")
-    ref = Reference()
+    ref = Reference()  # type: ignore[no-untyped-call]
     ref.title = title
     authors = reference_data.get("ab_name", ["Author,1.", "Author,2.", "Author,3."])
     if len(authors) == 1:
@@ -145,7 +146,7 @@ def create_reference(reference_data: Dict[str, Any]) -> Reference | None:
         ref.consrtm = refconsrtm
     pubmed = reference_data.get("pubmed")
     if pubmed:
-        ref.pubmed = pubmed
+        ref.pubmed_id = pubmed
     return ref
 
 
@@ -170,7 +171,7 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
     featureの情報からBioPythonのSeqFeatureオブジェクトを作成する
     """
     circular = topology == "circular"  # topoloygyがcircularの場合、true
-    feature_location = Location.fromstring(location, length=seq_length, circular=circular)
+    feature_location = Location.fromstring(location, length=seq_length, circular=circular)  # type: ignore[no-untyped-call]
 
     # qualifiersの変換
     converted_qualifiers = {}
@@ -183,7 +184,7 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
         else:
             converted_qualifiers[key] = values
 
-    return SeqFeature(
+    return SeqFeature(  # type: ignore[no-untyped-call]
         location=feature_location,
         type=feature_type,
         qualifiers=converted_qualifiers
@@ -246,7 +247,7 @@ def add_comment(record: SeqRecord, common_dict: Dict[str, Any]) -> None:
     if tagset_id:
         st_comment = {k: v for k, v in st_comment.items() if k != "tagset_id"}
         structured_comment = {tagset_id: st_comment}
-        record.annotations["structured_comment"] = structured_comment
+        record.annotations["structured_comment"] = structured_comment  # type: ignore[assignment]
 
 
 def set_date(record: SeqRecord, date: Optional[str] = None) -> None:
@@ -261,77 +262,14 @@ def set_date(record: SeqRecord, date: Optional[str] = None) -> None:
 def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     """
     CDS featureにtranslation qualifierを追加する
-
-    transl_exceptの処理を追加
-    記載例: (pos:5272379..5272381,aa:Sec)
-    現状では Sec: U, Pyl: O にのみ対応している
-    aaにTERMが記載されている場合や1つのSeqFeatureに複数のtransl_exceptが記載されている場合、未実装
+    翻訳と transl_except の解釈は dr_tools.translation に一本化してある
+    翻訳できない配列 (塩基以外の文字を含む等) では translation を付けず、警告だけ出す
     """
-    def _parse_transl_except(transl_except_value: str) -> Tuple[int, int, str]:
-        """
-        transl_exceptの開始位置、終了位置、翻訳後のアミノ酸を取得する
-        開始位置、終了位置は0-based
-
-        """
-        pattern = r'\(pos:(?:complement\()?(\d+)\.\.(\d+)(?:\))?,aa:(\w+)\)'
-        match = re.search(pattern, transl_except_value)
-
-        if match:
-            start = match.group(1)
-            end = match.group(2)
-            aa = match.group(3)
-            return int(start) - 1, int(end), aa
-        else:
-            raise ValueError(f"Invalid transl_except format: {transl_except_value}")
-
-    def try_translate(feature: SeqFeature, seq: Seq) -> Seq:
-        """
-        BiopythonのSeqFeature.translate()を試し、codon_startとcodon_tableを考慮してCDSを翻訳する
-        デフォルトでは cds=True が指定されており、開始コドンが ATG 以外の場合も M に置換される
-        partial locationの場合はエラーが発生するので、エラーが発生した場合は cds=Falseを考慮して翻訳する
-        """
-        try:
-            return feature.translate(seq)
-        except TranslationError:
-            try:
-                # start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
-                # table = int(feature.qualifiers.get("transl_table", [1])[0])
-                return feature.translate(seq, cds=False).rstrip("*")
-            except TranslationError:
-                logger.warning("TranslationError: Cannot translate the feature: %s", feature.id)
-                logger.warning(feature)
-                return None
-    dict_aa = {"Sec": "U", "Pyl": "O"}  # {"TERM": "*"}  # TERM not implemented
-
-    # transl_except が記載されている場合、その箇所を @@@ に置換して CDS を切り出し、
-    # CDS とアミノ酸配列中での位置を確認しておく
-    # translate 実行前に @@@ をNNNに置換しておくと該当箇所は X に翻訳されるので、翻訳後にアミノ酸を置換する
-    if "transl_except" in feature.qualifiers:
-        transl_except = feature.qualifiers["transl_except"]
-        if len(transl_except) > 1:
-            raise ValueError("Multiple transl_except qualifiers are not supported")
-        transl_except = transl_except[0]
-        start, end, aa = _parse_transl_except(transl_except)
-        assert aa in dict_aa
-        seq = seq[:start] + Seq("@@@") + seq[end:]  # replace the amino acid with @@@
-        cds = feature.location.extract(seq)
-        start_offset = int(feature.qualifiers.get("codon_start", ["1"])[0]) - 1
-
-        # CDSとアミノ酸配列中でのtranl_exceptの開始位置 (0-based)
-        except_index_nuc = cds.index("@@@")
-        except_index_aa = (except_index_nuc - start_offset) // 3
-
-        # print(except_index_nuc, except_index_aa)
-        # print(feature.qualifiers)
-        # print(cds[except_index_nuc:except_index_nuc+3])
-        seq = seq.replace("@@@", "NNN")
-
-    translation = try_translate(feature, seq)
-
-    if "transl_except" in feature.qualifiers:
-        assert translation[except_index_aa] == "X"
-        translation = translation[:except_index_aa] + dict_aa[aa] + translation[except_index_aa+1:]
-
+    try:
+        translation = translate_cds_with_transl_except(feature, seq)
+    except TranslationError as err:
+        logger.warning("Cannot translate the feature %s: %s", feature.id, err)
+        return
     if translation:
         feature.qualifiers["translation"] = [str(translation)]
 
@@ -362,7 +300,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
             seq=seq,
             id=entry_data["id"],
             name=entry_data["name"],
-            description="test"
+            description=""
         )
 
         # molecule_typeの設定
@@ -410,7 +348,7 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
             ref = create_reference(ref_data)
             if ref:
                 references.append(ref)
-        record.annotations["references"] = references
+        record.annotations["references"] = references  # type: ignore[assignment]
 
         seq_length = len(seq)
 

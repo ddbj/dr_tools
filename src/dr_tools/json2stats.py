@@ -70,7 +70,7 @@ def get_coding_ratio(entries: List[Dict[str, Any]]) -> float:
     CDSがオーバーラップしている可能性もあるが、考慮していないので簡易的な実装
     """
     def _get_feature_length(feature: Dict[str, Any], seq_length: int, circular: bool) -> int:
-        return len(Location.fromstring(feature["location"], seq_length, circular))
+        return len(Location.fromstring(feature["location"], seq_length, circular))  # type: ignore[no-untyped-call]
 
     coding_length = 0
     total_length = 0

@@ -11,8 +11,8 @@ pip install "git+https://github.com/ddbj/dr_tools.git"
 
 Requirements:
 
-- Python >= 3.9
-- Biopython >= 1.82
+- Python >= 3.10
+- Biopython >= 1.86
 
 ## Usage
 
@@ -88,6 +88,16 @@ drt_json2stats_for_dfast [-o out.json] [-f] input_file.json
 ```
 
 ## Development
+
+`uv.lock` があるので uv で環境を作る。
+
+```bash
+uv sync --extra dev
+uv run pytest
+uv run mypy
+```
+
+uv を使わない場合:
 
 ```bash
 pip install -e .[dev]
