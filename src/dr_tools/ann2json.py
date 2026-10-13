@@ -3,28 +3,125 @@ import argparse
 import logging
 import re
 import sys
+import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import (Any, Dict, List, Literal, Mapping, Optional, Sequence,
+                    Tuple, TypeVar, Union)
 
 from ddbj_record.converter.v1_to_v2 import v1_to_v2
 from ddbj_record.schema.v1 import DdbjRecord as DdBjRecordV1
 from ddbj_record.schema.v2 import DdbjRecord as DdBjRecordV2
+from ddbj_record.schema.v3 import Address
+from ddbj_record.schema.v3 import DdbjRecord as DdbjRecordV3
+from ddbj_record.schema.v3 import Entry as EntryV3
+from ddbj_record.schema.v3 import Feature as FeatureV3
+from ddbj_record.schema.v3 import (LocusTagPrefix, Organism, Organization,
+                                   Person, Project, Provenance, Publication,
+                                   Relation, RelationTarget, Sequences,
+                                   Source, SourceFeature, StructuredComment,
+                                   Submission)
+from pydantic import BaseModel
 
-from dr_tools.MSS import MSS, Entry
+from dr_tools.json_utils import QualifierValues, values_to_qualifiers
+from dr_tools.MSS import (DBLINK_KEY_TO_DB, MSS, Entry, Feature,
+                          hold_date_to_record, reference_status_to_record)
 
 DATA_MODEL_VERSION = "0.1"
+
+RecordVersion = Literal["v1", "v2", "v3"]
+
+# record v3 の provenance.source_format に書く値
+SOURCE_FORMAT_MSS = "MSS"
+
+# entry の source の qualifier のうち、全ての entry で同じ値でも common_source に移さないもの
+ENTRY_SPECIFIC_SOURCE_QUALIFIERS = ("submitter_seqid", "ff_definition")
+
+# Entry.type を決める source の qualifier。先に書いたものを優先する
+ENTRY_TYPE_QUALIFIERS = ("plasmid", "chromosome", "organelle", "segment")
+
+_M = TypeVar("_M", bound=BaseModel)
+
+
+# === ann の COMMON の読み取り (v1 / v2 用。v3 でも流用する) ===
+
+
+def get_common_entry(mss: MSS) -> Entry:
+    """COMMON entry を返す。無い、または 2 つ以上あれば ValueError"""
+    common_entries = [entry for entry in mss.entries if entry.id == "COMMON"]
+    if len(common_entries) == 0:
+        raise ValueError("COMMON entry not found.")
+    if len(common_entries) > 1:
+        raise ValueError("Multiple COMMON entries found.")
+    return common_entries[0]
+
+
+def get_dfast_version(entries: List[Entry]) -> str | None:
+    """
+    DFASTのバージョンを取得する
+    COMMENT		line	Annotated by DFAST v.1.3.4 https://dfast.ddbj.nig.ac.jp/
+    の1.3.4の部分を取得する
+    """
+    dfast_version_pat = re.compile(r"DFAST (ver\.|ver|version|v|v\.)?\s?(\d+\.\d+\.\d+)")
+    for entry in entries:
+        if entry.id == "COMMON":
+            for feature in entry.features:
+                if feature.type == "COMMENT":
+                    for qualifier_value in feature.qualifiers.get("line", []):
+                        if isinstance(qualifier_value, bool):
+                            continue
+                        m = dfast_version_pat.search(qualifier_value)
+                        if m:
+                            return m.group(2)
+    return None
+
+
+def get_locus_tag_prefix_from_ann(entries: List[Entry]) -> str | None:
+    """
+    locus_tag_prefix の決定
+    entry, featureのqualifierにlocus_tagが含まれる場合、その値の _ より前の部分をlocus_tag_prefixとする
+    """
+    for entry in entries:
+        for feature in entry.features:
+            if "locus_tag" in feature.qualifiers:
+                locus_tag = feature.qualifiers.get("locus_tag", [""])[0]
+                if locus_tag and isinstance(locus_tag, str) and "_" in locus_tag:
+                    return locus_tag.split("_")[0]
+    return None
+
+
+def get_submission_category(mss: MSS) -> str:
+    """
+    登録区分 (WGS / GNM) の判定
+    COMMON entry の DATATYPE feature の type が WGS であれば WGS、それ以外は GNM とする
+    """
+    for entry in mss.entries:
+        if entry.id == "COMMON":
+            for feature in entry.features:
+                if feature.type == "DATATYPE" and "WGS" in feature.qualifiers.get("type", []):
+                    return "WGS"
+            break
+    return "GNM"
+
+
+def get_seq_prefix(mss: MSS, submission_category: str) -> str | None:
+    """
+    seq_prefix の決定 (WGS の場合のみ)
+    最初の entry の名前 (sequence01, contig01 等) から末尾の数字を取り除いたもの
+    """
+    if submission_category != "WGS":
+        return None
+    for entry in mss.entries:
+        if entry.id == "COMMON":
+            continue
+        return entry.name.rstrip("0123456789") or None
+    return None
 
 
 def common_to_dict(mss: MSS) -> Dict[str, Dict[str, Any]]:  # Dict[str, V1Common]
     # COMMON entryの情報を取得して辞書で返す
     qualifiers_with_multi_values = ["line", "ab_name", "keyword", "sequence read archive"]
     features_with_multi_values = ["COMMENT", "REFERENCE"]
-    common_entries = [entry for entry in mss.entries if entry.id == "COMMON"]
-    if len(common_entries) == 0:
-        raise ValueError("COMMON entry not found.")
-    if len(common_entries) > 1:
-        raise ValueError("Multiple COMMON entries found.")
-    common_entry = common_entries[0]
+    common_entry = get_common_entry(mss)
     D: Dict[str, Dict[str, Any]] = {}  # pylint: disable=invalid-name
     for feature in common_entry.features:
         inner_dict: Dict[str, Any] = {}
@@ -96,77 +193,20 @@ def infer_meta_from_ann(mss: MSS) -> Tuple[Dict[str, Dict[str, str]], SeqInfo]:
     common_meta と seq_info の2つの辞書を返す
     注意: DFASTが出力するannファイルにのみ対応
     """
-
-    def _get_locus_tag_prefix(entries: List[Entry]) -> str | None:
-        """
-        locus_tag_prefix の決定
-        entry, featureのqualifierにlocus_tagが含まれる場合、その値の _ より前の部分をlocus_tag_prefixとする
-        """
-        for entry in entries:
-            for feature in entry.features:
-                if "locus_tag" in feature.qualifiers:
-                    locus_tag = feature.qualifiers.get("locus_tag", [""])[0]
-                    if locus_tag and isinstance(locus_tag, str) and "_" in locus_tag:
-                        return locus_tag.split("_")[0]
-        return None
-
-    def _get_dfast_version(entries: List[Entry]) -> str | None:
-        """
-        DFASTのバージョンを取得する
-        COMMENT		line	Annotated by DFAST v.1.3.4 https://dfast.ddbj.nig.ac.jp/
-        の1.3.4の部分を取得する
-        """
-        dfast_version_pat = re.compile(r"DFAST (ver\.|ver|version|v|v\.)?\s?(\d+\.\d+\.\d+)")
-        for entry in entries:
-            if entry.id == "COMMON":
-                for feature in entry.features:
-                    if feature.type == "COMMENT":
-                        for qualifier_value in feature.qualifiers.get("line", []):
-                            if isinstance(qualifier_value, bool):
-                                continue
-                            m = dfast_version_pat.search(qualifier_value)
-                            if m:
-                                dfast_version = m.group(2)
-                                # print(f"dfast_version: {dfast_version}, match1 '{m.group(1)}', match2 '{m.group(2)}'")  # debug
-                                return dfast_version
-        return None
-
-    dfast_version = _get_dfast_version(mss.entries)
+    dfast_version = get_dfast_version(mss.entries)
     if dfast_version:
         common_meta = {"dfast_version": dfast_version, "division": "BCT"}  # For DFAST, the division is always BCT
     else:
         common_meta = {"division": "UNK"}
 
-    # trad_submission_category (WGS, GNM) かの判定
-    # COMMON entryのDATATYPE featureのtypeがWGSであればWGSとする
-    # それ以外はGNMとする
-    trad_submission_category = "GNM"
-    for entry in mss.entries:
-        if entry.id == "COMMON":
-            for feature in entry.features:
-                if feature.type == "DATATYPE" and "WGS" in feature.qualifiers.get("type", []):
-                    trad_submission_category = "WGS"
-                    break
-            break
+    trad_submission_category = get_submission_category(mss)
     common_meta["trad_submission_category"] = trad_submission_category
-    # print(f"_trad_submission_category: {trad_submission_category}")  # debug
 
-    # seq_prefixの決定 (wgsの場合のみ)
-    # sequence01 contig01 等から数字の部分を取り除いたもの。
-    seq_prefix = ""
-    if trad_submission_category == "WGS":
-        for entry in mss.entries:
-            if entry.id == "COMMON":
-                continue
-            seq_name = entry.name
-            seq_prefix = seq_name.rstrip("0123456789")
-            break
+    seq_prefix = get_seq_prefix(mss, trad_submission_category)
     if seq_prefix:
         common_meta["seq_prefix"] = seq_prefix
-    # print(f"seq_prefix: {seq_prefix}")  # debug
 
-    # locus_tag_prefix の決定
-    locus_tag_prefix = _get_locus_tag_prefix(mss.entries)
+    locus_tag_prefix = get_locus_tag_prefix_from_ann(mss.entries)
     if locus_tag_prefix:
         common_meta["locus_tag_prefix"] = locus_tag_prefix
 
@@ -200,21 +240,437 @@ def make_entry_dict(mss: MSS, seq_info: SeqInfo) -> Dict[str, List[Dict[str, Any
     """
     mssオブジェクトを受け取り、各entryの情報を辞書で返す
     """
-    # D = {}
     L = []  # pylint: disable=invalid-name
     sequence_dict = {sequence.id: sequence.seq for sequence in mss.sequences}
     for entry in mss.entries:
         if entry.id == "COMMON":
             continue
         sequence = sequence_dict[entry.id]  # note: sequence.id and entry.id is always identical, but entry.name may be different.
-        # sequence = sequence[:10] + "..."  # for debug
         seq_info_dict = seq_info.get(entry.id, {})
         seq_type, seq_topology = seq_info_dict.get("seq_type", "other"), seq_info_dict.get("seq_topology", "linear")
         features = [feature.to_dict() for feature in entry.features if feature.type != "TOPOLOGY"]
-        # features = {feature.id: feature.to_dict() for feature in entry.features if feature.type != "TOPOLOGY"}
-        # D[entry.id] = {"name": entry.name, "_type": seq_type, "_topology": seq_topology, "sequence": sequence, "features": features}
         L.append({"id": entry.id, "name": entry.name, "type": seq_type, "topology": seq_topology, "sequence": sequence, "features": features})
     return {"ENTRIES": L}
+
+
+# === MSS から record v3 を組み立てる ===
+
+
+def _or_none(model: _M) -> _M | None:
+    """値を 1 つも持たないモデルは省く"""
+    return model if model.model_dump(exclude_none=True) else None
+
+
+def _text_values(feature: Feature, key: str) -> List[str]:
+    """qualifier の値のうち、空でない文字列だけを返す"""
+    return [value for value in feature.qualifiers.get(key, []) if isinstance(value, str) and value != ""]
+
+
+def _text_value(feature: Feature, key: str) -> str | None:
+    """qualifier の最初の空でない文字列の値を返す。無ければ None"""
+    values = _text_values(feature, key)
+    return values[0] if values else None
+
+
+def _normalize_abbr(abbr: str) -> str:
+    return re.sub(r"[.\-\s]", "", abbr).lower()
+
+
+def _abbr_candidates_from_fullname(fullname: str) -> set[str]:
+    """
+    contact のフルネームから、ab_name として書かれうる略記の候補を作る
+    "John A. Doe" なら "Doe,J.A."、"Doe,J."、"Doe," など。姓が先に来る名前 (Yamada Taro) も試す
+    """
+    name = fullname.strip()
+    candidates: set[str] = set()
+
+    def _add_candidate(last: str, initials: str) -> None:
+        if initials:
+            candidates.add(f"{last},{initials}.")
+            candidates.add(f"{last},{initials}")
+            candidates.add(f"{last},{initials[0]}.")
+            candidates.add(f"{last},{initials[0]}")
+            candidates.add(f"{last},{'.'.join(list(initials))}.")
+            candidates.add(f"{last},{'.'.join(list(initials))}")
+        candidates.add(f"{last},")
+        candidates.add(f"{last}")
+
+    if "," in name:  # "Last, First Middle"
+        last, rest = [x.strip() for x in name.split(",", 1)]
+        rest_parts = [p for p in re.split(r"\s+", rest) if p]
+        initials = "".join([p[0] for p in rest_parts if p])
+        _add_candidate(last, initials)
+    else:  # "First Middle Last"
+        parts = [p for p in re.split(r"\s+", name) if p]
+        if len(parts) == 1:
+            candidates.add(parts[0])
+        else:
+            first, last = parts[0], parts[-1]
+            mids = parts[1:-1]
+            initials = first[0] + "".join([m[0] for m in mids if m])
+            _add_candidate(last, initials)
+
+            # 姓が先に来る名前 (Yamada Taro -> Last=Yamada, First=Taro)
+            last, first = parts[0], parts[-1]
+            initials = first[0] + "".join([m[0] for m in mids if m])
+            _add_candidate(last, initials)
+
+    return {_normalize_abbr(c) for c in candidates if c}
+
+
+def find_contact_index(contact: str | None, ab_names: Sequence[str]) -> int | None:
+    """contact のフルネームに当たる ab_name の位置を返す。当たるものが無ければ None"""
+    if not contact:
+        return None
+    candidates = _abbr_candidates_from_fullname(contact)
+    for i, ab_name in enumerate(ab_names):
+        if _normalize_abbr(ab_name) in candidates:
+            return i
+    return None
+
+
+def build_submitters(common_entry: Entry) -> List[Person] | None:
+    """
+    SUBMITTER feature から submitters を作る
+    contact に当たる ab_name の人を先頭に置き、name / email / 所属をその人に付ける。先頭が role "contact"、
+    それ以外が "submitter"。contact がどの ab_name にも当たらなければ、abbreviation の無い人を先頭に足す
+    """
+    submitter_features = [feature for feature in common_entry.features if feature.type == "SUBMITTER"]
+    if not submitter_features:
+        return None
+    feature = submitter_features[0]
+
+    ab_names = _text_values(feature, "ab_name")
+    contact = _text_value(feature, "contact")
+    email = _text_value(feature, "email")
+
+    organizations: List[Organization] = []
+    institution = Organization(
+        name=_text_value(feature, "institute"),
+        url=_text_value(feature, "url"),
+        department=_text_value(feature, "department"),
+        address=_or_none(Address(
+            country=_text_value(feature, "country"),
+            state=_text_value(feature, "state"),
+            city=_text_value(feature, "city"),
+            street=_text_value(feature, "street"),
+            postal_code=_text_value(feature, "zip"),
+        )),
+    )
+    if _or_none(institution) is not None:
+        institution.type = "institution"
+        organizations.append(institution)
+    consrtm = _text_value(feature, "consrtm")
+    if consrtm:
+        organizations.append(Organization(name=consrtm, type="consortium"))
+
+    persons = [Person(abbreviation=ab_name) for ab_name in ab_names]
+    contact_index = find_contact_index(contact, ab_names)
+    if contact_index is not None:
+        persons.insert(0, persons.pop(contact_index))
+    elif contact:
+        warnings.warn(
+            f"contact '{contact}' did not match any ab_name; adding as separate Person without abbreviation",
+            UserWarning, stacklevel=2,
+        )
+        persons.insert(0, Person())
+    elif not persons and (email or organizations):
+        persons.append(Person())
+
+    if not persons:
+        return None
+    persons[0].name = contact
+    persons[0].email = email
+    persons[0].organizations = organizations or None
+    for i, person in enumerate(persons):
+        person.role = "contact" if i == 0 else "submitter"
+    return persons
+
+
+def build_publications(common_entry: Entry) -> List[Publication]:
+    """REFERENCE feature から publications を作る。year はそのまま date に置く"""
+    publications: List[Publication] = []
+    for feature in common_entry.features:
+        if feature.type != "REFERENCE":
+            continue
+        status = _text_value(feature, "status")
+        publication = _or_none(Publication(
+            title=_text_value(feature, "title"),
+            status=reference_status_to_record(status) if status else None,
+            date=_text_value(feature, "year"),
+            authors=[Person(abbreviation=ab_name) for ab_name in _text_values(feature, "ab_name")] or None,
+            consortiums=_text_values(feature, "consrtm") or None,
+        ))
+        if publication is not None:
+            publications.append(publication)
+    return publications
+
+
+def build_relations(common_entry: Entry) -> List[Relation]:
+    """DBLINK feature から relations (xref) を作る。DBLINK の並びを保つ"""
+    relations: List[Relation] = []
+    for feature in common_entry.features:
+        if feature.type != "DBLINK":
+            continue
+        for key, values in feature.qualifiers.items():
+            db = DBLINK_KEY_TO_DB.get(key)
+            if db is None:
+                warnings.warn(f"DBLINK qualifier {key!r} has no place in record; dropped", UserWarning, stacklevel=2)
+                continue
+            for value in values:
+                if isinstance(value, str) and value:
+                    relations.append(Relation(type="xref", target=RelationTarget(db=db, id=value)))
+    return relations
+
+
+def build_comments(features: List[Feature]) -> List[str]:
+    """COMMENT feature を、行を改行でつないだ 1 つの文字列にする。行の無い COMMENT は省く"""
+    comments: List[str] = []
+    for feature in features:
+        if feature.type != "COMMENT":
+            continue
+        lines = _text_values(feature, "line")
+        if lines:
+            comments.append("\n".join(lines))
+    return comments
+
+
+def build_structured_comments(common_entry: Entry) -> List[StructuredComment]:
+    """ST_COMMENT feature から structured_comments を作る。項目名は ann の書き方のまま fields のキーにする"""
+    structured_comments: List[StructuredComment] = []
+    for feature in common_entry.features:
+        if feature.type != "ST_COMMENT":
+            continue
+        fields: Dict[str, str] = {}
+        for key in feature.qualifiers:
+            if key == "tagset_id":
+                continue
+            values = _text_values(feature, key)
+            if not values:
+                continue
+            if len(values) > 1:
+                warnings.warn(
+                    f"ST_COMMENT field {key!r} has {len(values)} values; only the first is kept",
+                    UserWarning, stacklevel=2,
+                )
+            fields[key] = values[0]
+        structured_comment = _or_none(StructuredComment(tagset_id=_text_value(feature, "tagset_id"), fields=fields or None))
+        if structured_comment is not None:
+            structured_comments.append(structured_comment)
+    return structured_comments
+
+
+def build_keywords(common_entry: Entry) -> List[str]:
+    """KEYWORD feature の keyword を集める"""
+    return [keyword for feature in common_entry.features if feature.type == "KEYWORD"
+            for keyword in _text_values(feature, "keyword")]
+
+
+def get_hold_date(common_entry: Entry) -> str | None:
+    """DATE feature の hold_date を record の書き方 (YYYY-MM-DD) で返す"""
+    for feature in common_entry.features:
+        if feature.type == "DATE":
+            hold_date = _text_value(feature, "hold_date")
+            if hold_date:
+                return hold_date_to_record(hold_date)
+    return None
+
+
+def infer_entry_type(
+    source_qualifiers: Mapping[str, Sequence[str | bool]], submission_category: str, division: str | None = None,
+) -> str:
+    """
+    source の qualifier から Entry.type を決める
+    /plasmid、/chromosome、/organelle、/segment の順に見て、あればその名前。どれも無ければ WGS は unplaced、
+    division が VRL (ウイルスの配列 1 本のゲノム) は segment、それ以外 (GNM) は chromosome
+    """
+    for key in ENTRY_TYPE_QUALIFIERS:
+        if key in source_qualifiers:
+            return key
+    if submission_category == "WGS":
+        return "unplaced"
+    if division == "VRL":
+        return "segment"
+    return "chromosome"
+
+
+def infer_completeness(ff_definition: str | None) -> str | None:
+    """
+    ff_definition の文から Entry.completeness を決める
+    "nearly complete" -> nearly complete、"complete genome" / "complete sequence" -> complete、
+    "partial genome" / "partial sequence" / "draft genome" / "draft sequence" -> partial。読めなければ None
+    """
+    if not ff_definition:
+        return None
+    text = ff_definition.lower()
+    if "nearly complete" in text:
+        return "nearly complete"
+    if "complete genome" in text or "complete sequence" in text:
+        return "complete"
+    if any(phrase in text for phrase in ("partial genome", "partial sequence", "draft genome", "draft sequence")):
+        return "partial"
+    return None
+
+
+def common_source_qualifiers(mss: MSS) -> QualifierValues:
+    """
+    全ての entry の source feature で同じ値を持つ qualifier を返す (organism / mol_type を含む)
+    submitter_seqid と ff_definition は entry 固有なので含めない。MSS は変えない
+    """
+    source_features = [feature for entry in mss.entries if entry.id != "COMMON"
+                       for feature in entry.features if feature.type == "source"]
+    if not source_features:
+        return {}
+    common: QualifierValues = {}
+    first, others = source_features[0], source_features[1:]
+    for key, values in first.qualifiers.items():
+        if key in ENTRY_SPECIFIC_SOURCE_QUALIFIERS:
+            continue
+        if all(feature.qualifiers.get(key) == values for feature in others):
+            common[key] = list(values)
+    return common
+
+
+def _source_from_qualifiers(qualifiers: Mapping[str, Sequence[str | bool]]) -> Source | None:
+    """MSS の source の qualifier から Source を作る。organism と mol_type は qualifiers から分けて持つ"""
+    rest: QualifierValues = {}
+    organism: str | None = None
+    mol_type: str | None = None
+    for key, values in qualifiers.items():
+        text = next((value for value in values if isinstance(value, str) and value), None)
+        if key == "organism":
+            organism = text
+        elif key == "mol_type":
+            mol_type = text
+        else:
+            rest[key] = list(values)
+    return _or_none(Source(
+        organism=Organism(name=organism) if organism else None,
+        mol_type=mol_type,
+        qualifiers=values_to_qualifiers(rest),
+    ))
+
+
+def _build_feature(feature: Feature, entry_id: str) -> FeatureV3:
+    """entry の feature (source / TOPOLOGY / COMMENT 以外) を record の feature にする。locus_tag は locus_tag_id に分ける"""
+    qualifiers: QualifierValues = {key: list(values) for key, values in feature.qualifiers.items()}
+    locus_tag_id: str | None = None
+    locus_tags = qualifiers.pop("locus_tag", [])
+    locus_tag = locus_tags[0] if locus_tags else None
+    if isinstance(locus_tag, str) and locus_tag:
+        if "_" not in locus_tag:
+            raise ValueError(f"Invalid locus_tag: {locus_tag}")
+        locus_tag_id = locus_tag.split("_", 1)[1]
+    return FeatureV3(
+        alias=str(feature.id),
+        type=feature.type,
+        location=feature.location or None,
+        sequence_id=entry_id,
+        qualifiers=values_to_qualifiers(qualifiers),
+        locus_tag_id=locus_tag_id,
+    )
+
+
+def mss_to_record_v3(mss: MSS, division: Optional[str] = None) -> DdbjRecordV3:
+    """
+    MSS (ann + 配列) から record v3 を組み立てる
+
+    - provenance.source_format は "MSS"、submission_category は DATATYPE から決める (WGS / GNM)
+    - DFAST の version が COMMENT にあれば provenance.dfast_version に書く (型に無いキー)
+    - division を省くと、DFAST の出力なら BCT、そうでなければ UNK
+    - 全ての entry で同じ値の source の qualifier は sequences.common_source に置き、entry の source には
+      entry 固有の qualifier だけを置く
+    """
+    common_entry = get_common_entry(mss)
+    dfast_version = get_dfast_version(mss.entries)
+    submission_category = get_submission_category(mss)
+    if division is None:
+        division = "BCT" if dfast_version else "UNK"
+
+    provenance_data: Dict[str, Any] = {
+        "source_format": SOURCE_FORMAT_MSS,
+        "submission_category": submission_category,
+    }
+    if dfast_version:
+        provenance_data["dfast_version"] = dfast_version
+
+    submission = _or_none(Submission(
+        submitters=build_submitters(common_entry),
+        hold_date=get_hold_date(common_entry),
+        comments=build_comments(common_entry.features) or None,
+    ))
+
+    locus_tag_prefix = get_locus_tag_prefix_from_ann(mss.entries)
+    project = _or_none(Project(
+        publications=build_publications(common_entry) or None,
+        locus_tag_prefix=[LocusTagPrefix(prefix=locus_tag_prefix)] if locus_tag_prefix else None,
+    ))
+
+    common_qualifiers = common_source_qualifiers(mss)
+    sequence_dict = {sequence.id: sequence.seq for sequence in mss.sequences}
+    entries: List[EntryV3] = []
+    features: List[FeatureV3] = []
+    for entry in mss.entries:
+        if entry.id == "COMMON":
+            continue
+        if entry.id not in sequence_dict:
+            raise ValueError(f"Sequence for entry {entry.id} not found in the sequence file")
+
+        source_features: List[SourceFeature] = []
+        entry_type: str | None = None
+        completeness: str | None = None
+        topology = "linear"
+        for feature in entry.features:
+            if feature.type == "source":
+                entry_specific = {key: values for key, values in feature.qualifiers.items()
+                                  if key != "ff_definition" and key not in common_qualifiers}
+                source_features.append(SourceFeature(
+                    alias=str(feature.id),
+                    location=feature.location or None,
+                    source=_source_from_qualifiers(entry_specific),
+                    definition=_text_values(feature, "ff_definition") or None,
+                ))
+                if entry_type is None:
+                    entry_type = infer_entry_type(feature.qualifiers, submission_category, division)
+                if completeness is None:
+                    completeness = infer_completeness(_text_value(feature, "ff_definition"))
+            elif feature.type == "TOPOLOGY":
+                if "circular" in feature.qualifiers:
+                    topology = "circular"
+            elif feature.type == "COMMENT":
+                continue  # build_comments でまとめて読む
+            else:
+                features.append(_build_feature(feature, entry.id))
+
+        entries.append(EntryV3(
+            alias=entry.id,
+            name=entry.name,
+            type=entry_type if entry_type is not None else infer_entry_type({}, submission_category, division),
+            topology=topology,
+            division=division,
+            completeness=completeness,
+            sequence=sequence_dict[entry.id],
+            comments=build_comments(entry.features) or None,
+            source_features=source_features or None,
+        ))
+
+    sequences = Sequences(
+        seq_prefix=get_seq_prefix(mss, submission_category),
+        common_source=_source_from_qualifiers(common_qualifiers),
+        entries=entries or None,
+        structured_comments=build_structured_comments(common_entry) or None,
+        keywords=build_keywords(common_entry) or None,
+    )
+
+    return DdbjRecordV3(
+        schema_version="v3",
+        provenance=Provenance.model_validate(provenance_data),
+        submission=submission,
+        projects=[project] if project is not None else None,
+        sequences=sequences,
+        features=features or None,
+        relations=build_relations(common_entry) or None,
+    )
 
 
 def ann2json_for_dfast(
@@ -222,47 +678,53 @@ def ann2json_for_dfast(
     seq_file: Path,
     out_json_file: Optional[Path] = None,
     division: Optional[str] = None,
-    record_version: Literal["v1", "v2"] = "v2",
+    record_version: RecordVersion = "v2",
 ) -> None:
     """
     DFAST が生成する ann ファイルと seq ファイルを読み込み、json形式のファイルに変換する
 
+    record_version が v3 のときは MSS から v3 を直接組み立てる。v1 / v2 のときは v1 を組み立て、
+    v2 は ddbj_record の converter で v1 から変換する
+
     todo: CDS featureのtranslationが含まれていないので, jsonにtranslationを含めるか、jsonの情報を元にtranslationを生成する機能が必要
     """
-    dat: Dict[str, Any] = {"schema_version": DATA_MODEL_VERSION}
-
     # MSSインスタンスを作成してパース
     mss = MSS.parse(ann_file, seq_file)
 
-    common_dict = common_to_dict(mss)
-    common_source = source_to_dict(mss)
-    common_meta, seq_info = infer_meta_from_ann(mss)
-    trad_submission_category = common_meta["COMMON_META"].pop("trad_submission_category")
-    common_dict["COMMON"]["trad_submission_category"] = trad_submission_category
-    if division:
-        # divisionが指定されていれば変更 (デフォルトでは UNK)
-        common_meta["COMMON_META"]["division"] = division
-
-    dict_entry = make_entry_dict(mss, seq_info)
-
-    dat.update(common_dict)
-    dat.update(common_source)
-    dat.update(common_meta)
-    dat.update(dict_entry)
-
-    # === ddbj record v2 対応 ===
-    ddbj_record: Union[DdBjRecordV1, DdBjRecordV2]
-    if record_version == "v1":
-        ddbj_record = DdBjRecordV1.model_validate(dat)
+    ddbj_record: Union[DdBjRecordV1, DdBjRecordV2, DdbjRecordV3]
+    if record_version == "v3":
+        ddbj_record = mss_to_record_v3(mss, division=division)
     else:
-        v1_record = DdBjRecordV1.model_validate(dat)
-        ddbj_record = v1_to_v2(v1_record)
+        dat: Dict[str, Any] = {"schema_version": DATA_MODEL_VERSION}
 
+        common_dict = common_to_dict(mss)
+        common_source = source_to_dict(mss)
+        common_meta, seq_info = infer_meta_from_ann(mss)
+        trad_submission_category = common_meta["COMMON_META"].pop("trad_submission_category")
+        common_dict["COMMON"]["trad_submission_category"] = trad_submission_category
+        if division:
+            # divisionが指定されていれば変更 (デフォルトでは UNK)
+            common_meta["COMMON_META"]["division"] = division
+
+        dict_entry = make_entry_dict(mss, seq_info)
+
+        dat.update(common_dict)
+        dat.update(common_source)
+        dat.update(common_meta)
+        dat.update(dict_entry)
+
+        if record_version == "v1":
+            ddbj_record = DdBjRecordV1.model_validate(dat)
+        else:
+            v1_record = DdBjRecordV1.model_validate(dat)
+            ddbj_record = v1_to_v2(v1_record)
+
+    json_str = ddbj_record.model_dump_json(indent=4, exclude_none=True, by_alias=True)
     if out_json_file is None:
-        print(ddbj_record.model_dump_json(indent=4, exclude_none=True, by_alias=True))
+        print(json_str)
     else:
         with open(out_json_file, "w", encoding="utf-8") as f:
-            f.write(ddbj_record.model_dump_json(indent=4, exclude_none=True, by_alias=True))
+            f.write(json_str)
 
 
 def main() -> None:
@@ -274,7 +736,7 @@ def main() -> None:
     argparser.add_argument('seq_file', type=str, help='MSS Sequence file')
     argparser.add_argument('-o', '--out_json_file', type=str, help='Output json file. If not specified, output will written to stdout.', default=None)
     argparser.add_argument('-d', '--division', type=str, help='Division. Default is BCT for DFAST result or UNK', default=None)
-    argparser.add_argument('-r', '--record_version', type=str, choices=['v1', 'v2'], help='DDBJ Record version. Default is v2', default='v2')
+    argparser.add_argument('-r', '--record_version', type=str, choices=['v1', 'v2', 'v3'], help='DDBJ Record version. Default is v2', default='v2')
 
     if len(sys.argv) == 1:
         argparser.print_help()

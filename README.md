@@ -14,24 +14,53 @@ Requirements:
 - Python >= 3.10
 - Biopython >= 1.84
 
+## Record の版
+
+JSON は [ddbj-record-specifications](https://github.com/ddbj/ddbj-record-specifications) の DDBJ Record で、v1 / v2 / v3 の 3 つの版がある。
+
+- 読み込み (`drt_json2ann` / `json_to_seqrecords` / `drt_json2fasta` / `drt_json2stats` / `get_feature_json`) は、どの版の JSON も受け付ける。v1 / v2 の JSON は ddbj-record の converter で v3 に変換してから読む (v1 → v2 → v3)
+- 書き出し (`drt_ann2json`) は `record_version` で版を選ぶ。既定は v2 で、v3 を指定すると MSS から v3 を直接組み立てる (`provenance.source_format` は `"MSS"`)。v1 / v2 は v1 を組み立ててから converter で変換する
+- v3 の JSON を v1 / v2 に戻す converter は無いので、v3 の JSON を v1 / v2 として読む要求はエラーになる
+
+MSS の ann と v3 の対応:
+
+| ann | v3 |
+| --- | --- |
+| DBLINK `project` / `biosample` / `sequence read archive` | `relations[]` の xref (`db` は `bioproject` / `biosample` / `insdc.sra`) |
+| SUBMITTER | `submission.submitters[]` (先頭が連絡先。所属は `organizations[]`) |
+| REFERENCE `title` / `ab_name` / `consrtm` / `status` / `year` | `projects[0].publications[]` の `title` / `authors[].abbreviation` / `consortiums` / `status` / `date` |
+| COMMENT | `submission.comments[]` (行は改行でつなぐ) |
+| ST_COMMENT | `sequences.structured_comments[]` |
+| DATE `hold_date` (YYYYMMDD) | `submission.hold_date` (YYYY-MM-DD) |
+| KEYWORD | `sequences.keywords[]` |
+| DATATYPE `type` WGS | `provenance.submission_category` (`WGS` / `GNM`) |
+| 全ての entry で同じ source の qualifier | `sequences.common_source` |
+| entry 固有の source の qualifier (`/plasmid` など) | `entries[].source_features[].source` (`common_source` を名前ごとに上書きする) |
+| source の `ff_definition` | `entries[].source_features[].definition` |
+| TOPOLOGY `circular` | `entries[].topology` |
+| feature の `locus_tag` | `projects[0].locus_tag_prefix[0].prefix` と `features[].locus_tag_id` |
+| 値の無い qualifier (`/pseudo` など) | `value` を省いた qualifier (`{}`) |
+
+`entries[].type` は source の qualifier から決める (`/plasmid` → plasmid、`/chromosome` → chromosome、`/organelle` → organelle、`/segment` → segment、無ければ WGS は unplaced、division が VRL なら segment、それ以外は chromosome)。`entries[].completeness` は `ff_definition` の文から決める (complete / nearly complete / partial。読めなければ省く)。`entries[].division` は `drt_ann2json` の `division` 引数で、省くと DFAST の出力では BCT、それ以外は UNK になる。
+
 ## Usage
 
-```bash
+```python
 from dr_tools import drt_ann2json, drt_json2ann, json_to_seqrecords, drt_json2fasta, drt_json2stats
 
-# DFAST が生成した MSS 登録ファイル (ann, seq) を DFAST results JSON に変換
-# DFAST 以外の MSS 登録ファイルにも今後対応予定
-drt_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "ddbj_record.json")
+# DFAST が生成した MSS 登録ファイル (ann, seq) を DDBJ Record JSON に変換
+# record_version は "v1" / "v2" / "v3" で、既定は "v2"
+drt_ann2json("examples/complete_genome.ann", "examples/complete_genome.fa", "ddbj_record.json", record_version="v3")
 
-# JSON ファイルを MSS 登録ファイル (ann, seq) に変換
+# JSON ファイルを MSS 登録ファイル (ann, fasta) に変換
 # out_dir はデフォルトではカレントディレクトリ
 # out_prefix はデフォルトで None で、BioSample や strain の値を反映して自動で生成される。
-# 出力ファイルは {out_dir}/{out_prefix}.ann と .fa
-drt_json2ann("examples/complete_genome.json", "OUTPUT", "DDBJ-MSS")
+# 出力ファイルは {out_dir}/{out_prefix}.ann と .fasta
+drt_json2ann("examples/complete_genome.v3.json", "OUTPUT", "DDBJ-MSS")
 
 
-# JSON ァイルから BioPython の SeqRecord オブジェクトに変換 (List[SeqRecord])
-records = json_to_seqrecords("examples/complete_genome.json")
+# JSON ファイルから BioPython の SeqRecord オブジェクトに変換 (List[SeqRecord])
+records = json_to_seqrecords("examples/complete_genome.v3.json")
 # BioPython の機能を使って GenBank 形式に変換
 from Bio import SeqIO
 with open("out.gbk", "w") as f:
@@ -43,31 +72,33 @@ with open("out.gbk", "w") as f:
 drt_json2fasta("ddbj_record.json", "out_dir")
 
 # JSON ファイルからゲノムサイズ、遺伝子数等の統計情報を取得し JSON で保存
-# format=Falaseの場合、数値として保存
+# format_=False の場合、数値として保存
 # output_fileを指定しない場合、辞書を返す
 # keyはDFAST webのUIで表示するときと同じ名称
-drt_json2stats("complete_genome.json", format=True, output_file="genome_stats.json")
+drt_json2stats("ddbj_record.json", format_=True, output_file="genome_stats.json")
 
 
-# JSON ファイルと、遺伝子の feature.id を取得して遺伝子詳細情報を辞書として得る
+# JSON ファイルと、遺伝子の feature の alias を指定して遺伝子詳細情報を辞書として得る
 # (DFAST web サービスで遺伝子詳細ページで表示する内容を取得)
+# v3 の feature の項目に、locus_tag の qualifier、nucleotide、translation を足したもの
 from dr_tools.json_utils import get_feature_json
 data = get_feature_json("ddbj_record.json", "feature_11")
 # 出力例:
 print(json.dumps(data, indent=2))
 {
-  "id": "feature_11",
+  "alias": "feature_11",
   "type": "CDS",
   "location": "1852..2991",
+  "sequence_id": "chromosome",
   "qualifiers": {
-    "product": ["DNA polymerase III subunit beta"],
-    "transl_table": ["11"],
-    "codon_start": ["1"],
-    "gene": ["dnaN"],
-    "inference": ["COORDINATES:ab initio prediction:MetaGeneAnnotator",
-      "similar to AA sequence:RefSeq:WP_003641629.1"
+    "product": [{"value": "DNA polymerase III subunit beta"}],
+    "transl_table": [{"value": "11"}],
+    "codon_start": [{"value": "1"}],
+    "gene": [{"value": "dnaN"}],
+    "inference": [{"value": "COORDINATES:ab initio prediction:MetaGeneAnnotator"},
+      {"value": "similar to AA sequence:RefSeq:WP_003641629.1"}
     ],
-    "locus_tag": ["PLH_00020"]
+    "locus_tag": [{"value": "PLH_00020"}]
   },
   "locus_tag_id": "00020",
   "nucleotide": "ATGA...",
@@ -75,12 +106,14 @@ print(json.dumps(data, indent=2))
 }
 ```
 
-その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス、`dr_tools.json_utils` に JSON データを扱うための関数を定義している。
+その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス (`MSS.parse` が ann / seq を、`MSS.from_json` / `MSS.from_record` が record を読む)、`dr_tools.json_utils` に record v3 を扱うための関数を定義している。
+
+`examples/` には `complete_genome` (DFAST の完全ゲノム) と `vrl_result` (DFAST_VRL のウイルスゲノム) の ann / fa と、それぞれを v1 (`*.json`)、v2 (`*.v2.json`)、v3 (`*.v3.json`) にした JSON がある。JSON の配列は 10 文字に切り詰めてある。
 
 ## Scripts
 
 ```bash
-drt_ann2json [-o out.json] input_mss_file.ann input_mss_file.fa
+drt_ann2json [-o out.json] [-d division] [-r v1|v2|v3] input_mss_file.ann input_mss_file.fa
 drt_json2ann [-O out_dir] [-o out_prefix] input_file.json
 drt_json2gbk [-o out.gbk] input_file.json
 drt_json2fasta [-O out_dir] input_file.json
@@ -97,6 +130,8 @@ uv run pytest
 uv run mypy
 ```
 
+`ddbj-record` を進めるときは `uv lock -P ddbj-record` を実行する。
+
 uv を使わない場合:
 
 ```bash
@@ -112,3 +147,5 @@ docker compose up -d --build
 # then
 docker compose exec python-dev bash
 ```
+
+`tests/fixtures/trad_gnm.json` は ddbj-record-specifications の `tests/fixtures/v3/records/trad_gnm.json` の写しで、`examples/complete_genome.ann` から `drt_ann2json` (v3) が作る record と一致することを確かめるのに使う。

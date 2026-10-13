@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 from typing import Dict, List
 
+import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
@@ -45,6 +46,13 @@ def test_generate_out_prefix_complete_genome_mss_returns_biosample_and_strain(ms
 
 def test_generate_out_prefix_vrl_mss_without_biosample_returns_isolate_value(mss_vrl: MSS) -> None:
     assert generate_out_prefix(mss_vrl) == "hCov-19_Japan_SZ-NIG-12345_2021"
+
+
+@pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
+def test_generate_out_prefix_from_json_of_each_record_version_returns_biosample_and_strain(
+    version: str, eg_complete: Dict[str, Path],
+) -> None:
+    assert generate_out_prefix(MSS.from_json(eg_complete[version])) == "SAMD999999_LOOC260"
 
 
 # --- generate_out_prefix: どちらも無い / 片方だけ / strain と isolate ---
@@ -157,47 +165,43 @@ def test_generate_out_prefix_pbt_result_is_always_a_safe_filename(biosample: str
     assert re.fullmatch(r"[A-Za-z0-9_-]+", result) is not None
 
 
-# --- json2ann: out_prefix=None の自動命名 ---
+# --- json2ann: out_prefix=None の自動命名と拡張子 ---
 
 
-def test_json2ann_complete_v1_out_prefix_none_names_files_by_biosample_and_strain(
-    eg_complete: Dict[str, Path], tmp_path: Path
+@pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
+def test_json2ann_complete_out_prefix_none_names_files_by_biosample_and_strain_with_fasta_extension(
+    version: str, eg_complete: Dict[str, Path], tmp_path: Path
 ) -> None:
-    json2ann(mss_json_file=eg_complete["v1_json"], out_dir=tmp_path, out_prefix=None)
+    json2ann(mss_json_file=eg_complete[version], out_dir=tmp_path, out_prefix=None)
     assert tmp_path.joinpath("SAMD999999_LOOC260.ann").exists()
-    assert tmp_path.joinpath("SAMD999999_LOOC260.fa").exists()
+    assert tmp_path.joinpath("SAMD999999_LOOC260.fasta").exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["SAMD999999_LOOC260.ann", "SAMD999999_LOOC260.fasta"]
 
 
-def test_json2ann_complete_v2_out_prefix_none_names_files_by_biosample_and_strain(
-    eg_complete: Dict[str, Path], tmp_path: Path
-) -> None:
-    json2ann(mss_json_file=eg_complete["v2_json"], out_dir=tmp_path, out_prefix=None)
-    assert tmp_path.joinpath("SAMD999999_LOOC260.ann").exists()
-    assert tmp_path.joinpath("SAMD999999_LOOC260.fa").exists()
-
-
-def test_json2ann_vrl_v1_out_prefix_none_names_files_by_isolate(eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
-    json2ann(mss_json_file=eg_vrl["v1_json"], out_dir=tmp_path, out_prefix=None)
+@pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
+def test_json2ann_vrl_out_prefix_none_names_files_by_isolate(version: str, eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
+    json2ann(mss_json_file=eg_vrl[version], out_dir=tmp_path, out_prefix=None)
     assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.ann").exists()
-    assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.fa").exists()
-
-
-def test_json2ann_vrl_v2_out_prefix_none_names_files_by_isolate(eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
-    json2ann(mss_json_file=eg_vrl["v2_json"], out_dir=tmp_path, out_prefix=None)
-    assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.ann").exists()
-    assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.fa").exists()
+    assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.fasta").exists()
 
 
 def test_json2ann_explicit_out_prefix_overrides_auto_naming(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
-    json2ann(mss_json_file=eg_complete["v1_json"], out_dir=tmp_path, out_prefix="test_prefix")
+    json2ann(mss_json_file=eg_complete["v3_json"], out_dir=tmp_path, out_prefix="test_prefix")
     assert tmp_path.joinpath("test_prefix.ann").exists()
-    assert tmp_path.joinpath("test_prefix.fa").exists()
+    assert tmp_path.joinpath("test_prefix.fasta").exists()
     assert not tmp_path.joinpath("SAMD999999_LOOC260.ann").exists()
 
 
 def test_json2ann_missing_out_dir_is_created(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
     out_dir = tmp_path.joinpath("nested", "sub")
     assert not out_dir.exists()
-    json2ann(mss_json_file=eg_complete["v1_json"], out_dir=out_dir, out_prefix="test_prefix")
+    json2ann(mss_json_file=eg_complete["v3_json"], out_dir=out_dir, out_prefix="test_prefix")
     assert out_dir.joinpath("test_prefix.ann").exists()
-    assert out_dir.joinpath("test_prefix.fa").exists()
+    assert out_dir.joinpath("test_prefix.fasta").exists()
+
+
+def test_json2ann_fasta_file_has_entry_names_and_separators(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+    json2ann(mss_json_file=eg_complete["v3_json"], out_dir=tmp_path, out_prefix="out")
+    fasta = tmp_path.joinpath("out.fasta").read_text(encoding="utf-8")
+    assert [line for line in fasta.splitlines() if line.startswith(">")] == [">chromosome", ">pPLH-1", ">pPLH-2"]
+    assert fasta.count("\n//\n") == 3

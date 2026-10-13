@@ -1,40 +1,46 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Tuple
 
-from dr_tools.json_utils import (get_locus_tag_prefix, json_to_seqfeature,
-                                 load_json_to_ddbj_record_instance,
-                                 set_locus_tag)
+from ddbj_record.schema.v3 import Entry, Feature
+
+from dr_tools.json_utils import (features_by_entry, get_entry_id,
+                                 get_locus_tag_prefix, json_to_seqfeature,
+                                 load_json_to_ddbj_record_instance)
+
+GENE_FEATURE_TYPES = ["CDS", "rRNA", "tRNA", "tmRNA", "ncRNA", "misc_RNA"]
 
 
-def json_to_gene_seq(feature_json: Dict[str, Any], entry_json: Dict[str, Any]) -> Tuple[str, str, str]:
+def json_to_gene_seq(feature: Feature, entry: Entry, locus_tag_prefix: str) -> Tuple[str, str, str]:
     """
-    Feature データの JSON から遺伝子の FASTA の description、塩基配列、タンパク質配列を取得する
+    record v3 の feature から遺伝子の FASTA の description、塩基配列、タンパク質配列を取得する
     description の書式は "{locus_tag} {product} [type={product}] [location={location}]"
-    実行前には set_locus_tag で locus_tag クオリファイアを設定しておくこと
+    locus_tag は locus_tag_prefix と feature の locus_tag_id から組み立てる。無ければ feature の alias を使う
     """
-    seq_feature, nucleotide_seq = json_to_seqfeature(feature_json, entry_json)
+    seq_feature, nucleotide_seq = json_to_seqfeature(feature, entry, locus_tag_prefix)
     feature_type = seq_feature.type
-    locus_tag = seq_feature.qualifiers["locus_tag"][0]
+    locus_tag = seq_feature.qualifiers.get("locus_tag", [feature.alias or ""])[0]
     product = seq_feature.qualifiers.get("product", ["unknown product"])[0]
     gene = seq_feature.qualifiers.get("gene", [""])[0]
-    location = feature_json.get("location", "unknown location")
+    location = feature.location or "unknown location"
+    entry_name = entry.name or get_entry_id(entry)
     if feature_type == "CDS":
         translate = seq_feature.qualifiers.get("translation", [""])[0]
     else:
         translate = ""
     nucleotide = str(nucleotide_seq).upper()
     if gene:
-        description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_json['name']}:{location}]"
+        description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_name}:{location}]"
     else:
-        description = f"{locus_tag} {product} [type={feature_type}] [location={entry_json['name']}:{location}]"
+        description = f"{locus_tag} {product} [type={feature_type}] [location={entry_name}:{location}]"
     return description, nucleotide, str(translate)
 
 
 def json2fasta(json_file: Path, out_dir: Path) -> None:
     """
     JSON ファイルからゲノムおよび遺伝子のFASTAファイルを生成する
+    JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
     """
 
     out_dir = Path(out_dir)
@@ -43,26 +49,23 @@ def json2fasta(json_file: Path, out_dir: Path) -> None:
 
     genome_fasta, cds_fasta, rna_fasta, protein_fasta = [], [], [], []
 
-    # === ddbj record v2 対応 ===
-    record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
-    json_dat = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+    record = load_json_to_ddbj_record_instance(json_file, to_record_version="v3")
+    locus_tag_prefix = get_locus_tag_prefix(record)
+    grouped_features = features_by_entry(record)
 
-    for entry in json_dat.get("ENTRIES", []):
-        entry_id = entry["name"]
-        seq = entry["sequence"].upper()
-        genome_fasta.append(f">{entry_id}\n{seq}\n")
-        locus_tag_prefix = get_locus_tag_prefix(json_dat)
-        for feature in entry.get("features", []):
-            feature_type = feature["type"]
-            if feature_type not in ["CDS", "rRNA", "tRNA", "tmRNA", "ncRNA", "misc_RNA"]:
+    for entry in (record.sequences.entries if record.sequences is not None else None) or []:
+        entry_id = get_entry_id(entry)
+        entry_name = entry.name or entry_id
+        seq = (entry.sequence or "").upper()
+        genome_fasta.append(f">{entry_name}\n{seq}\n")
+        for feature in grouped_features.get(entry_id, []):
+            if feature.type not in GENE_FEATURE_TYPES:
                 continue
-            # feature_id = feature["id"]
-            set_locus_tag(feature, locus_tag_prefix)
-            description, nucleotide, translate = json_to_gene_seq(feature, entry)
-            if feature["type"] == "CDS":
+            description, nucleotide, translate = json_to_gene_seq(feature, entry, locus_tag_prefix)
+            if feature.type == "CDS":
                 cds_fasta.append(f">{description}\n{nucleotide}\n")
                 protein_fasta.append(f">{description}\n{translate}\n")
-            elif feature["type"] in ["rRNA", "tRNA", "tmRNA", "ncRNA", "misc_RNA"]:
+            else:
                 rna_fasta.append(f">{description}\n{nucleotide}\n")
 
     genome_fasta_file = out_dir / Path("genome.fna")

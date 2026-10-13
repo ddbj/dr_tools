@@ -6,29 +6,34 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from Bio.SeqFeature import Location
+from ddbj_record.schema.v3 import Entry, Feature
 
-from dr_tools.json_utils import load_json_to_ddbj_record_instance
+from dr_tools.json_utils import (features_by_entry, get_entry_id,
+                                 load_json_to_ddbj_record_instance)
 
 
-def count_features(entries: List[Dict[str, Any]]) -> Dict[str, int]:
+def _sequence_length(entry: Entry) -> int:
+    return len(entry.sequence or "")
+
+
+def count_features(features: List[Feature]) -> Dict[str, int]:
     """
-    エントリーリストから、各種遺伝子の数をカウントする
+    feature リストから、各種遺伝子の数をカウントする
     """
-
-    featute_types = [feature["type"] for entry in entries for feature in entry["features"] if feature["type"] != "source"]
-    feature_counts = Counter(featute_types)
+    feature_types = [feature.type or "" for feature in features]
+    feature_counts = Counter(feature_types)
     return dict(feature_counts)
 
 
-def get_genome_stats(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+def get_genome_stats(entries: List[Entry]) -> Dict[str, Any]:
     """
     エントリーリストからゲノムサイズ、N数のカウント等を行う
     """
     number_of_entries = len(entries)
-    all_sequences = "".join([entry["sequence"] for entry in entries])
+    all_sequences = "".join([entry.sequence or "" for entry in entries])
     all_sequences = all_sequences.upper()
     genome_size = len(all_sequences)
     number_of_N = all_sequences.count("N")
@@ -44,14 +49,11 @@ def get_genome_stats(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
     return D
 
 
-def get_N50(entries: List[Dict[str, Any]]) -> Optional[int]:
+def get_N50(entries: List[Entry]) -> Optional[int]:
     """
     エントリーリストからN50を計算する
     """
-    def _get_length(entry: Dict[str, Any]) -> int:
-        return entry.get("length") or len(entry["sequence"])
-
-    seq_lengths = [_get_length(entry) for entry in entries]
+    seq_lengths = [_sequence_length(entry) for entry in entries]
     seq_lengths.sort(reverse=True)
     total_length = sum(seq_lengths)
     half_length = total_length / 2
@@ -64,20 +66,21 @@ def get_N50(entries: List[Dict[str, Any]]) -> Optional[int]:
     return None
 
 
-def get_coding_ratio(entries: List[Dict[str, Any]]) -> float:
+def get_coding_ratio(entries: List[Entry], grouped_features: Mapping[str, List[Feature]]) -> float:
     """
-    エントリーリストからコーディング領域の割合を計算する
+    エントリーリストと entry ごとの feature からコーディング領域の割合を計算する
     CDSがオーバーラップしている可能性もあるが、考慮していないので簡易的な実装
     """
-    def _get_feature_length(feature: Dict[str, Any], seq_length: int, circular: bool) -> int:
-        return len(Location.fromstring(feature["location"], seq_length, circular))  # type: ignore[no-untyped-call]
+    def _get_feature_length(feature: Feature, seq_length: int, circular: bool) -> int:
+        return len(Location.fromstring(feature.location or "", seq_length, circular))  # type: ignore[no-untyped-call]
 
     coding_length = 0
     total_length = 0
     for entry in entries:
-        circular = entry.get("topology", "linear") == "circular"
-        seq_length = entry.get("length") or len(entry["sequence"])
-        cds_features = [_get_feature_length(feature, seq_length, circular) for feature in entry["features"] if feature["type"] == "CDS"]
+        circular = entry.topology == "circular"
+        seq_length = _sequence_length(entry)
+        cds_features = [_get_feature_length(feature, seq_length, circular)
+                        for feature in grouped_features.get(get_entry_id(entry), []) if feature.type == "CDS"]
         total_length += seq_length
         coding_length += sum(cds_features)
     coding_ratio = coding_length / total_length
@@ -87,16 +90,16 @@ def get_coding_ratio(entries: List[Dict[str, Any]]) -> float:
 def json2stats(json_file: Path) -> Dict[str, Any]:
     """
     JSON ファイルから統計情報を取得する
+    JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
     """
-    # === ddbj record v2 対応 ===
-    record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
-    json_dat = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+    record = load_json_to_ddbj_record_instance(json_file, to_record_version="v3")
 
-    entries = json_dat.get("ENTRIES", [])
+    entries = (record.sequences.entries if record.sequences is not None else None) or []
+    grouped_features = features_by_entry(record)
     genome_stats = get_genome_stats(entries)
-    feature_stats = count_features(entries)
+    feature_stats = count_features(record.features or [])
     n50 = get_N50(entries)
-    coding_ratio = get_coding_ratio(entries)
+    coding_ratio = get_coding_ratio(entries, grouped_features)
     stats = {}
     stats.update(genome_stats)
     stats["N50"] = n50

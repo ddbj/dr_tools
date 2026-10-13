@@ -1,0 +1,337 @@
+{
+  "schema_version": "v3",
+  "provenance": {
+    "source_format": "DFAST",
+    "submission_category": "GNM"
+  },
+  "submission": {
+    "submitters": [
+      {
+        "name": "Hanako Mishima",
+        "first_name": "Hanako",
+        "last_name": "Mishima",
+        "abbreviation": "Mishima,H.",
+        "email": "mishima@ddbj.nig.ac.jp",
+        "role": "contact",
+        "organizations": [
+          {
+            "name": "National Institute of Genetics",
+            "url": "https://ddbj.nig.ac.jp",
+            "type": "institution",
+            "department": "DNA Data Bank of Japan",
+            "address": {
+              "country": "Japan",
+              "state": "Shizuoka",
+              "city": "Mishima",
+              "street": "Yata 1111",
+              "postal_code": "411-8540"
+            }
+          }
+        ]
+      },
+      {
+        "abbreviation": "Tanizawa,Y.",
+        "role": "submitter"
+      },
+      {
+        "abbreviation": "Nakamura,Y.",
+        "role": "submitter"
+      }
+    ],
+    "hold_date": "2025-03-31",
+    "comments": [
+      "Comment line1\nline2",
+      "Annotated by DFAST 1.3.4 https://dfast.ddbj.nig.ac.jp/"
+    ]
+  },
+  "projects": [
+    {
+      "locus_tag_prefix": [
+        {
+          "prefix": "PLH"
+        }
+      ],
+      "publications": [
+        {
+          "title": "Complete genome sequencing of Paucilactobacillus hokkaidonensis",
+          "status": "unpublished",
+          "date": "2023",
+          "authors": [
+            {
+              "abbreviation": "Mishima,H."
+            },
+            {
+              "abbreviation": "Tanizawa,Y."
+            },
+            {
+              "abbreviation": "Nakamura,Y."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sequences": {
+    "common_source": {
+      "organism": {
+        "name": "Paucilactobacillus hokkaidonensis"
+      },
+      "mol_type": "genomic DNA",
+      "qualifiers": {
+        "strain": [
+          {
+            "value": "LOOC260"
+          }
+        ],
+        "type_material": [
+          {
+            "value": "type strain"
+          }
+        ],
+        "collection_date": [
+          {
+            "value": "2012-04-01"
+          }
+        ],
+        "culture_collection": [
+          {
+            "value": "JCM:18460"
+          }
+        ],
+        "isolation_source": [
+          {
+            "value": "silage"
+          }
+        ],
+        "geo_loc_name": [
+          {
+            "value": "Japan:Hokkaido"
+          }
+        ]
+      }
+    },
+    "entries": [
+      {
+        "alias": "chromosome",
+        "name": "chromosome",
+        "type": "chromosome",
+        "topology": "circular",
+        "sequence": "ttatccacaattaaac...(2277985 bp)...gaa",
+        "source_features": [
+          {
+            "location": "1..2277985",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ DNA, complete genome"
+            ],
+            "alias": "feature_8"
+          }
+        ]
+      },
+      {
+        "alias": "pPLH-1",
+        "name": "pPLH-1",
+        "type": "plasmid",
+        "topology": "circular",
+        "sequence": "atgtatgattttaag...(81630 bp)...gac",
+        "source_features": [
+          {
+            "location": "1..81630",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+            ],
+            "alias": "feature_2270"
+          }
+        ]
+      },
+      {
+        "alias": "pPLH-2",
+        "name": "pPLH-2",
+        "type": "plasmid",
+        "topology": "linear",
+        "sequence": "atgacaaaatcaaca...(40971 bp)...aca",
+        "source_features": [
+          {
+            "location": "1..40971",
+            "definition": [
+              "@@[organism]@@ @@[strain]@@ plasmid @@[plasmid]@@ DNA, complete sequence"
+            ],
+            "alias": "feature_2374"
+          }
+        ]
+      }
+    ],
+    "structured_comments": [
+      {
+        "tagset_id": "Genome-Assembly-Data",
+        "fields": {
+          "Assembly Method": "HGAP v. x.x",
+          "Genome Coverage": "60x",
+          "Sequencing Technology": "Illumina MiSeq; PacBio RSII"
+        }
+      }
+    ]
+  },
+  "features": [
+    {
+      "type": "CDS",
+      "location": "360..1676",
+      "sequence_id": "chromosome",
+      "qualifiers": {
+        "product": [
+          {
+            "value": "chromosomal replication initiator protein DnaA"
+          }
+        ],
+        "transl_table": [
+          {
+            "value": "11"
+          }
+        ],
+        "codon_start": [
+          {
+            "value": "1"
+          }
+        ],
+        "gene": [
+          {
+            "value": "dnaA"
+          }
+        ],
+        "inference": [
+          {
+            "value": "COORDINATES:ab initio prediction:MetaGeneAnnotator"
+          },
+          {
+            "value": "similar to AA sequence:RefSeq:WP_003641628.1"
+          }
+        ]
+      },
+      "locus_tag_id": "00010",
+      "alias": "feature_10"
+    },
+    {
+      "type": "CDS",
+      "location": "1852..2991",
+      "sequence_id": "chromosome",
+      "qualifiers": {
+        "product": [
+          {
+            "value": "DNA polymerase III subunit beta"
+          }
+        ],
+        "transl_table": [
+          {
+            "value": "11"
+          }
+        ],
+        "codon_start": [
+          {
+            "value": "1"
+          }
+        ],
+        "gene": [
+          {
+            "value": "dnaN"
+          }
+        ],
+        "inference": [
+          {
+            "value": "COORDINATES:ab initio prediction:MetaGeneAnnotator"
+          },
+          {
+            "value": "similar to AA sequence:RefSeq:WP_003641629.1"
+          }
+        ]
+      },
+      "locus_tag_id": "00020",
+      "alias": "feature_11"
+    },
+    {
+      "type": "CDS",
+      "location": "1..1314",
+      "sequence_id": "pPLH-1",
+      "qualifiers": {
+        "product": [
+          {
+            "value": "primase C-terminal domain-containing protein"
+          }
+        ],
+        "transl_table": [
+          {
+            "value": "11"
+          }
+        ],
+        "codon_start": [
+          {
+            "value": "1"
+          }
+        ],
+        "inference": [
+          {
+            "value": "COORDINATES:ab initio prediction:MetaGeneAnnotator"
+          },
+          {
+            "value": "similar to AA sequence:RefSeq:WP_000947691.1"
+          }
+        ]
+      },
+      "locus_tag_id": "21920",
+      "alias": "feature_2272"
+    },
+    {
+      "type": "repeat_region",
+      "location": "425..577",
+      "sequence_id": "pPLH-2",
+      "qualifiers": {
+        "rpt_family": [
+          {
+            "value": "CRISPR"
+          }
+        ],
+        "rpt_type": [
+          {
+            "value": "direct"
+          }
+        ],
+        "rpt_unit_seq": [
+          {
+            "value": "aaacccttgctacgagcggaagttcaaaaaatg"
+          }
+        ],
+        "inference": [
+          {
+            "value": "COORDINATES:alignment:CRT:1.2"
+          }
+        ]
+      },
+      "alias": "feature_2375"
+    }
+  ],
+  "assembly": {
+    "assembly_level": "complete genome",
+    "genome_representation": "full"
+  },
+  "relations": [
+    {
+      "type": "xref",
+      "target": {
+        "db": "bioproject",
+        "id": "PRJDB99999"
+      }
+    },
+    {
+      "type": "xref",
+      "target": {
+        "db": "biosample",
+        "id": "SAMD999999"
+      }
+    },
+    {
+      "type": "xref",
+      "target": {
+        "db": "insdc.sra",
+        "id": "DRR999990"
+      }
+    }
+  ]
+}

@@ -9,18 +9,24 @@ from dr_tools.MSS import MSS
 HERE = Path(__file__).parent.resolve()
 REPO_ROOT = HERE.parent
 EXAMPLES_DIR = REPO_ROOT.joinpath("examples")
+FIXTURES_DIR = HERE.joinpath("fixtures")
 EG_COMPLETE = {
     "ann": EXAMPLES_DIR.joinpath("complete_genome.ann"),
     "seq": EXAMPLES_DIR.joinpath("complete_genome.fa"),
     "v1_json": EXAMPLES_DIR.joinpath("complete_genome.json"),
     "v2_json": EXAMPLES_DIR.joinpath("complete_genome.v2.json"),
+    "v3_json": EXAMPLES_DIR.joinpath("complete_genome.v3.json"),
 }
 EG_VRL = {
     "ann": EXAMPLES_DIR.joinpath("vrl_result.ann"),
     "seq": EXAMPLES_DIR.joinpath("vrl_result.fa"),
     "v1_json": EXAMPLES_DIR.joinpath("vrl_result.json"),
     "v2_json": EXAMPLES_DIR.joinpath("vrl_result.v2.json"),
+    "v3_json": EXAMPLES_DIR.joinpath("vrl_result.v3.json"),
 }
+# ddbj-record-specifications の tests/fixtures/v3/records/trad_gnm.json の写し。
+# examples/complete_genome.ann (record の tests/fixtures/v3/raw/trad/complete_genome.ann と同じ) から作られている。
+TRAD_GNM_V3_JSON = FIXTURES_DIR.joinpath("trad_gnm.json")
 
 # WGS (draft) の MSS。examples には GNM しかないので、登録区分で挙動が変わる箇所のために置く。
 # contig01 は circular、contig02 は linear。どちらの配列も 30 bp で、CDS は 1 つ。
@@ -77,6 +83,11 @@ def eg_vrl() -> Dict[str, Path]:
 
 
 @pytest.fixture
+def trad_gnm_v3_json() -> Path:
+    return TRAD_GNM_V3_JSON
+
+
+@pytest.fixture
 def mss_complete() -> MSS:
     return MSS.parse(EG_COMPLETE["ann"], EG_COMPLETE["seq"])
 
@@ -89,14 +100,14 @@ def mss_vrl() -> MSS:
 @pytest.fixture(scope="session")
 def full_record(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Path]:
     """
-    完全な配列を持つ record JSON を ann / fa から作って返す
+    完全な配列を持つ record JSON (v1 / v2 / v3) を同じ ann / fa から作って返す
 
-    examples/complete_genome.json は配列を 13 文字に切り詰めた確認用のデータなので、
+    examples/complete_genome*.json は配列を 10 文字に切り詰めた確認用のデータなので、
     翻訳や配列の長さを見るテストの入力には使えない。
     """
     out_dir = tmp_path_factory.mktemp("full_record")
     result = {}
-    for version in ("v1", "v2"):
+    for version in ("v1", "v2", "v3"):
         json_file = out_dir.joinpath(f"complete_genome.{version}.json")
         ann2json_for_dfast(EG_COMPLETE["ann"], EG_COMPLETE["seq"], json_file, record_version=version)
         result[version] = json_file

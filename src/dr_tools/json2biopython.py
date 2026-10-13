@@ -5,148 +5,137 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Mapping, Optional, Sequence
 
 from Bio import SeqIO
 from Bio.Data.CodonTable import TranslationError
 from Bio.Seq import Seq
 from Bio.SeqFeature import Location, Reference, SeqFeature
 from Bio.SeqRecord import SeqRecord
+from ddbj_record.schema.v3 import (Organization, Person, Publication,
+                                   Relation, StructuredComment)
 
-from dr_tools.json_utils import load_json_to_ddbj_record_instance
+from dr_tools.json_utils import (feature_qualifier_values, features_by_entry,
+                                 get_entry_id, get_locus_tag_prefix,
+                                 load_json_to_ddbj_record_instance,
+                                 merge_source_qualifiers)
+from dr_tools.MSS import DB_TO_DBLINK_KEY, reference_status_to_mss
 from dr_tools.translation import translate_cds_with_transl_except
 
 logger = logging.getLogger(__name__)
 
-
-def collect_metadata(json_data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    JSONデータからメタデータを収集する
-    """
-    metadata = {}
-
-    # COMMONの情報を収集
-    common = json_data.get("COMMON", {})
-    metadata["common"] = common
-
-    # COMMON_SOURCEの情報を収集
-    common_source = json_data.get("COMMON_SOURCE", {})
-    metadata["common_source"] = common_source
-
-    return metadata
+# GenBank の DBLINK に書く順と見出し
+_DBXREF_LABELS = {
+    "project": "BioProject",
+    "biosample": "BioSample",
+    "sequence read archive": "Sequence Read Archive",
+}
 
 
-def create_submitter(submitter_data: Dict[str, Any]) -> Reference | None:
-    """
-    jsonのSUBMITTER情報をBioPythonのReferenceオブジェクトに変換する
-    (GenBank形式では形式的に登録者情報はReferenceとして扱う)
-    入力データの例:
-        "SUBMITTER": {
-            "ab_name": [
-                "Mishima,H.",
-                "Tanizawa,Y.",
-                "Nakamura,Y."
-            ],
-            "contact": "Hanako Mishima",
-            "email": "mishima@ddbj.nig.ac.jp",
-            "url": "https://ddbj.nig.ac.jp",
-            "institute": "National Institute of Genetics",
-            "department": "DNA Data Bank of Japan",
-            "country": "Japan",
-            "state": "Shizuoka",
-            "city": "Mishima",
-            "street": "Yata 1111",
-            "zip": "411-8540"
-        },
-
-    """
-    submitters = submitter_data.get("ab_name", [])
-    consrtm = submitter_data.get("consrtm", "")
-    contact = submitter_data.get("contact", "Contact Person")
-    # email = submitter_data.get("email", "email@example.com") email is not visible in GenBank format
-    url = submitter_data.get("url")
-    institute = submitter_data.get("institute", "Institute Name")
-    department = submitter_data.get("department")
-    country = submitter_data.get("country", "Country")
-    state = submitter_data.get("state")
-    city = submitter_data.get("city", "City")
-    street = submitter_data.get("street", "Street Name")
-    zip_ = submitter_data.get("zip", "###-####")
-    if submitters or consrtm:
-        ref = Reference()  # type: ignore[no-untyped-call]
-        ref.title = "Direct Submission"
-        if len(submitters) == 1:
-            ref.authors = submitters[0]
-        elif len(submitters) > 1:
-            ref.authors = ", ".join(submitters[:-1]) + " and " + submitters[-1]
-        if consrtm:
-            ref.consrtm = consrtm
-        contact = "Contact:" + contact
-        if department:
-            affiliation = f"{institute}, {department};"
-        else:
-            affiliation = institute
-        address = f"{street}, {city}"
-        if state:
-            address += f", {state}"
-        address = f"{address} {zip_}, {country}"
-        country = submitter_data.get("country")
-        if url:
-            address += f" URL:{url}"
-        ref.journal = f"{contact}, {affiliation}, {address}"
-        return ref
-    else:
-        return None
-
-
-def create_reference(reference_data: Dict[str, Any]) -> Reference | None:
-    """
-    ReferenceのjsonデータからRefereeceオブジェクトを作成する
-    入力データの例:
-            {
-            "title": "Complete genome sequencing of Paucilactobacillus hokkaidonensis",
-            "ab_name": [
-                "Mishima,H.",
-                "Tanizawa,Y.",
-                "Nakamura,Y."
-            ],
-            "status": "Unpublished",
-            "year": "2023"
-        }
-    statusがIn pressの場合、journalは"In press, year"となる
-    statusがPublishedの場合、journalは"journal volume:pages (year)"となる
-    """
-    title = reference_data.get("title")
-    if title is None:
-        return None
-    status = reference_data.get("status", "Unpublished")
-    ref = Reference()  # type: ignore[no-untyped-call]
-    ref.title = title
-    authors = reference_data.get("ab_name", ["Author,1.", "Author,2.", "Author,3."])
+def _join_authors(authors: List[str]) -> str:
+    """著者の略記を GenBank の AUTHORS の書き方 ("A, B and C") にする"""
     if len(authors) == 1:
-        ref.authors = authors[0]
-    elif len(authors) > 1:
-        ref.authors = ", ".join(authors[:-1]) + " and " + authors[-1]
-    year = reference_data.get("year", "2000")
+        return authors[0]
+    if len(authors) > 1:
+        return ", ".join(authors[:-1]) + " and " + authors[-1]
+    return ""
+
+
+def _institution(organizations: Sequence[Organization] | None) -> Organization | None:
+    """所属のうち consortium でない最初のものを返す"""
+    for organization in organizations or []:
+        if organization.type != "consortium":
+            return organization
+    return None
+
+
+def _consortium_name(organizations: Sequence[Organization] | None) -> str | None:
+    """所属のうち consortium の最初のものの名前を返す"""
+    for organization in organizations or []:
+        if organization.type == "consortium" and organization.name:
+            return organization.name
+    return None
+
+
+def create_submitter(submitters: Sequence[Person] | None) -> Reference | None:
+    """
+    record の submitters を BioPython の Reference オブジェクトに変換する
+    (GenBank形式では形式的に登録者情報はReferenceとして扱う)
+    先頭の人が連絡先で、連絡先の名前と所属 (institution の名前、部署、住所、URL) を JOURNAL に書く。
+    abbreviation を持つ人が 1 人もおらず、consortium も無ければ None を返す
+    """
+    if not submitters:
+        return None
+    ab_names = [person.abbreviation for person in submitters if person.abbreviation]
+    contact = submitters[0]
+    consrtm = _consortium_name(contact.organizations)
+    if not ab_names and not consrtm:
+        return None
+
+    institution = _institution(contact.organizations)
+    address = institution.address if institution is not None else None
+
+    ref = Reference()  # type: ignore[no-untyped-call]
+    ref.title = "Direct Submission"
+    ref.authors = _join_authors(ab_names)
+    if consrtm:
+        ref.consrtm = consrtm
+    contact_text = "Contact:" + (contact.name or "Contact Person")
+    institute = (institution.name if institution is not None else None) or "Institute Name"
+    department = institution.department if institution is not None else None
+    if department:
+        affiliation = f"{institute}, {department};"
+    else:
+        affiliation = institute
+    street = (address.street if address is not None else None) or "Street Name"
+    city = (address.city if address is not None else None) or "City"
+    state = address.state if address is not None else None
+    postal_code = (address.postal_code if address is not None else None) or "###-####"
+    country = (address.country if address is not None else None) or "Country"
+    address_text = f"{street}, {city}"
+    if state:
+        address_text += f", {state}"
+    address_text = f"{address_text} {postal_code}, {country}"
+    url = institution.url if institution is not None else None
+    if url:
+        address_text += f" URL:{url}"
+    ref.journal = f"{contact_text}, {affiliation}, {address_text}"
+    return ref
+
+
+def create_reference(publication: Publication) -> Reference | None:
+    """
+    record の publication から Reference オブジェクトを作成する
+    title が無ければ None を返す
+    statusがIn pressの場合、journalは"journal (In press, year)"となる
+    statusがPublishedの場合、journalは"journal volume:pages, (year)"となる
+    year は date の先頭 4 文字
+    """
+    if publication.title is None:
+        return None
+    status = reference_status_to_mss(publication.status or "unpublished")
+    ref = Reference()  # type: ignore[no-untyped-call]
+    ref.title = publication.title
+    authors = [author.abbreviation for author in publication.authors or [] if author.abbreviation]
+    if not authors:
+        authors = ["Author,1.", "Author,2.", "Author,3."]
+    ref.authors = _join_authors(authors)
+    year = (publication.date or "2000")[:4]
+    journal = publication.journal or "Journal Name"
     if status == "In press":
-        journal = reference_data.get("journal", "Journal Name")
         ref.journal = f"{journal} (In press, {year})"
     elif status == "Published":
-        journal = reference_data.get("journal", "Journal Name")
-        volume = reference_data.get("volume", "vol#")
-        pages = reference_data.get("start_page", "###")
-        end_page = reference_data.get("end_page")
-        if end_page:
-            pages += "-" + end_page
+        volume = publication.volume or "vol#"
+        pages = publication.pages_from or "###"
+        if publication.pages_to:
+            pages += "-" + publication.pages_to
         ref.journal = f"{journal} {volume}:{pages}, ({year})"
     else:
         ref.journal = f"Unpublished. ({year})"
-    refconsrtm = reference_data.get("consrtm")
-    if refconsrtm:
-        ref.consrtm = refconsrtm
-    pubmed = reference_data.get("pubmed")
-    if pubmed:
-        ref.pubmed_id = pubmed
+    if publication.consortiums:
+        ref.consrtm = ", ".join(publication.consortiums)
+    if publication.pubmed_id:
+        ref.pubmed_id = publication.pubmed_id
     return ref
 
 
@@ -166,15 +155,17 @@ def create_definition(ff_definition: str, **kwargs: str) -> str:
     return re.sub(r'@@\[(.*?)\]@@', replacer, ff_definition)
 
 
-def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, List[str]], seq_length: int, topology: str) -> SeqFeature:
+def create_seqfeature(feature_type: str, location: str, qualifiers: Mapping[str, Sequence[str | bool]],
+                      seq_length: int, topology: str) -> SeqFeature:
     """
     featureの情報からBioPythonのSeqFeatureオブジェクトを作成する
+    値を持たない qualifier (True) は空文字列にする
     """
     circular = topology == "circular"  # topoloygyがcircularの場合、true
     feature_location = Location.fromstring(location, length=seq_length, circular=circular)  # type: ignore[no-untyped-call]
 
     # qualifiersの変換
-    converted_qualifiers = {}
+    converted_qualifiers: Dict[str, List[str]] = {}
     for key, values in qualifiers.items():
         # Booleanの場合は空文字列に変換
         if len(values) == 0:
@@ -182,7 +173,7 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
         elif isinstance(values[0], bool):
             converted_qualifiers[key] = [""]
         else:
-            converted_qualifiers[key] = values
+            converted_qualifiers[key] = [str(value) for value in values]
 
     return SeqFeature(  # type: ignore[no-untyped-call]
         location=feature_location,
@@ -191,62 +182,41 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Dict[str, Li
     )
 
 
-def add_dbxrefs(record: SeqRecord, common_dict: Dict[str, Any]) -> None:
+def add_dbxrefs(record: SeqRecord, relations: Sequence[Relation] | None) -> None:
     """
-    DBLINK情報を追加する
+    relations の xref (bioproject / biosample / insdc.sra) を DBLINK として追加する
+    同じ DB の id が複数あれば ", " でつなぐ
     """
     record.dbxrefs = []
-    common_dblink = common_dict.get("DBLINK", {})
-    bioproject = common_dblink.get("project", "")
-    biosample = common_dblink.get("biosample", "")
-    sra = common_dblink.get("sequence read archive", "")
-    if isinstance(bioproject, list):
-        bioproject = ", ".join(bioproject)
-    if isinstance(biosample, list):
-        biosample = ", ".join(biosample)
-    if isinstance(sra, list):
-        sra = ", ".join(sra)
-    if bioproject:
-        record.dbxrefs.append("BioProject:" + bioproject)
-    if biosample:
-        record.dbxrefs.append("BioSample:" + biosample)
-    if sra:
-        record.dbxrefs.append("Sequence Read Archive:" + sra)
+    ids_by_key: Dict[str, List[str]] = {}
+    for relation in relations or []:
+        if relation.type != "xref" or relation.target is None or not relation.target.id:
+            continue
+        key = DB_TO_DBLINK_KEY.get(relation.target.db or "")
+        if key is None:
+            continue
+        ids_by_key.setdefault(key, []).append(relation.target.id)
+    for key, label in _DBXREF_LABELS.items():
+        if key in ids_by_key:
+            record.dbxrefs.append(f"{label}:" + ", ".join(ids_by_key[key]))
 
 
-def add_comment(record: SeqRecord, common_dict: Dict[str, Any]) -> None:
+def add_comment(record: SeqRecord, comments: Sequence[str] | None,
+                structured_comments: Sequence[StructuredComment] | None) -> None:
     """
-    ST_COMMENTおよびCOMMENT情報を追加する
+    COMMENT および ST_COMMENT の情報を追加する
 
-    ST_COMMENTは以下の通り GenBankファイルでは
-        "ST_COMMENT": {
-            "tagset_id": "Genome-Assembly-Data",
-            "Assembly Method": "HGAP v. x.x",
-            "Genome Coverage": "60x",
-            "Sequencing Technology": "Illumina MiSeq; PacBio RSII"
-        },    
-    GenBankファイルでは以下のような構造になっている
-    'structured_comment': defaultdict(<class 'dict'>, {'Genome-Assembly-Data': {'Assembly Method': 'HGAP v. x.x', 'Genome Coverage': '60x', 'Sequencing Technology': 'Illumina MiSeq; PacBio RSII'}}
-
-    COMMENTは複数記載できるのでjsonではリストになっている。list[dict[str, list[str]]]
-        "COMMENT": [
-            {
-                "line": ["Comment line1", "line2"]
-            },
-            {
-                "line": ["Annotated by DFAST https://dfast.ddbj.nig.ac.jp/"]
-            }
-        ],
+    comments は submission.comments で、1 つのコメントは行を改行でつないだ文字列。全てを改行でつないで COMMENT にする
+    structured_comments は sequences.structured_comments で、GenBank ファイルでは以下のような構造になる
+        'structured_comment': {'Genome-Assembly-Data': {'Assembly Method': 'HGAP v. x.x', 'Genome Coverage': '60x', 'Sequencing Technology': 'Illumina MiSeq; PacBio RSII'}}
     """
-    comments = common_dict.get("COMMENT", [])
-    comment_str = "\n".join(["\n".join(comment["line"]) for comment in comments])
-    record.annotations["comment"] = comment_str
+    record.annotations["comment"] = "\n".join(comments or [])
 
-    st_comment = common_dict.get("ST_COMMENT", {})
-    tagset_id = st_comment.get("tagset_id")
-    if tagset_id:
-        st_comment = {k: v for k, v in st_comment.items() if k != "tagset_id"}
-        structured_comment = {tagset_id: st_comment}
+    structured_comment: Dict[str, Dict[str, str]] = {}
+    for item in structured_comments or []:
+        if item.tagset_id:
+            structured_comment[item.tagset_id] = dict(item.fields or {})
+    if structured_comment:
         record.annotations["structured_comment"] = structured_comment  # type: ignore[assignment]
 
 
@@ -277,121 +247,126 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
 def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
     """
     JSONデータをBioPythonのSeqRecordオブジェクトのリストに変換する
+    JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
     """
-    # === ddbj record v2 対応 ===
-    record_instance = load_json_to_ddbj_record_instance(json_file, to_record_version="v1")
-    json_data = record_instance.model_dump(exclude_none=True, by_alias=True)  # dict形式に変換
+    record = load_json_to_ddbj_record_instance(json_file, to_record_version="v3")
 
     records = []
 
-    common = json_data.get("COMMON", {})
+    submission = record.submission
+    sequences = record.sequences
+    common_source = sequences.common_source if sequences is not None else None
+    locus_tag_prefix = get_locus_tag_prefix(record)
+    grouped_features = features_by_entry(record)
 
-    # COMMON_SOURCE, COMMON_METAの内容を取得
-    common_source = json_data.get("COMMON_SOURCE", {})
-    common_meta = json_data.get("COMMON_META", {})
+    # submitter, referencesの設定 (全ての entry で同じ)
+    references = []
+    submitter = create_submitter(submission.submitters if submission is not None else None)
+    if submitter:
+        references.append(submitter)
+    for project in record.projects or []:
+        for publication in project.publications or []:
+            ref = create_reference(publication)
+            if ref:
+                references.append(ref)
 
     # エントリーごとにSeqRecordを作成
-    for entry_data in json_data["ENTRIES"]:
-        # シーケンスの作成
-        seq = Seq(entry_data["sequence"])
+    for entry_data in (sequences.entries if sequences is not None else None) or []:
+        entry_id = get_entry_id(entry_data)
+        entry_name = entry_data.name or entry_id
+        seq = Seq(entry_data.sequence or "")
 
-        # SeqRecordの作成
-        record = SeqRecord(
+        seq_record = SeqRecord(
             seq=seq,
-            id=entry_data["id"],
-            name=entry_data["name"],
+            id=entry_id,
+            name=entry_name,
             description=""
         )
 
+        # source featureの作成 (COMMON_SOURCEの内容を entry の source で上書きして展開する)
+        source_features = entry_data.source_features or []
+        first_source = merge_source_qualifiers(common_source, source_features[0].source) if source_features \
+            else merge_source_qualifiers(common_source, None)
+
         # molecule_typeの設定
-        mol_type_value = common_source.get("mol_type", "DNA")
+        mol_type_values = first_source.get("mol_type", ["DNA"])
+        mol_type_value = str(mol_type_values[0]) if mol_type_values else "DNA"
         if "DNA" in mol_type_value:
-            record.annotations["molecule_type"] = "DNA"
+            seq_record.annotations["molecule_type"] = "DNA"
         elif "RNA" in mol_type_value:
-            record.annotations["molecule_type"] = "RNA"
+            seq_record.annotations["molecule_type"] = "RNA"
         else:
             raise ValueError(f"Invalid molecule_type: {mol_type_value}. Must contain 'DNA' or 'RNA'.")
 
         # Division
-        division = common_meta.get("division", "UNK")
-        record.annotations["data_file_division"] = division
+        seq_record.annotations["data_file_division"] = entry_data.division or "UNK"
 
         # topologyの設定
-        topology = entry_data.get("topology", "linear")
-        record.annotations["topology"] = topology
+        topology = entry_data.topology or "linear"
+        seq_record.annotations["topology"] = topology
 
         # organismの設定
-        organism = common_source.get("organism", "Unknown organism")
-        record.annotations["organism"] = organism
-        record.annotations["source"] = organism
+        organism_values = first_source.get("organism", [])
+        organism = str(organism_values[0]) if organism_values else "Unknown organism"
+        seq_record.annotations["organism"] = organism
+        seq_record.annotations["source"] = organism
 
         # keywordsの設定
-        keywords = common.get("KEYWORD", {}).get("keyword", [])
+        keywords = sequences.keywords if sequences is not None else None
         if keywords:
-            record.annotations["keywords"] = keywords
+            seq_record.annotations["keywords"] = list(keywords)  # type: ignore[assignment]
 
         # dbxrefsの設定
-        add_dbxrefs(record, common)
+        add_dbxrefs(seq_record, record.relations)
 
         # commentの設定
-        add_comment(record, common)
+        add_comment(seq_record, submission.comments if submission is not None else None,
+                    sequences.structured_comments if sequences is not None else None)
 
         # dateの設定
-        set_date(record, common_meta.get("date"))
+        set_date(seq_record, None)
 
-        # submitter, referencesの設定
-        references = []
-        submitter = create_submitter(common.get("SUBMITTER", {}))
-        if submitter:
-            references.append(submitter)
-        for ref_data in common.get("REFERENCE", []):
-            ref = create_reference(ref_data)
-            if ref:
-                references.append(ref)
-        record.annotations["references"] = references  # type: ignore[assignment]
+        seq_record.annotations["references"] = list(references)  # type: ignore[assignment]
 
         seq_length = len(seq)
-
         features = []
 
-        # source featureの作成
-        for feature_data in entry_data["features"]:
-            if feature_data["type"] == "source":
-                # COMMON_SOURCEの内容とマージ
-                qualifiers = {k: [v] for k, v in common_source.items()}
-                qualifiers.update(feature_data["qualifiers"])
-                feature = create_seqfeature(
-                    "source",
-                    feature_data["location"],
-                    qualifiers,
-                    seq_length, topology
-                )  # seq_lengthとtopologyはlocationを解析するために必要
-                features.append(feature)
-                ff_definition = qualifiers.get("ff_definition", ["@@[organism]@@"])[0]
-                source_qualifiers = {k: v[0] for k, v in qualifiers.items() if k != "ff_definition" and len(v) == 1}
-                source_qualifiers["submitter_seqid"] = entry_data["name"]
-                definition = create_definition(ff_definition, **source_qualifiers)
-                record.description = definition
-            else:
-                # source feature以外のfeatureを作成
-                feature = create_seqfeature(
-                    feature_data["type"],
-                    feature_data["location"],
-                    feature_data["qualifiers"],
-                    seq_length, topology
-                )
+        for i, source_feature in enumerate(source_features):
+            qualifiers = merge_source_qualifiers(common_source, source_feature.source)
+            feature = create_seqfeature(
+                "source",
+                source_feature.location or "",
+                qualifiers,
+                seq_length, topology
+            )  # seq_lengthとtopologyはlocationを解析するために必要
+            features.append(feature)
+            if i == 0:
+                # DEFINITION は最初の source feature の ff_definition から作る
+                # @@[organism]@@ などは source の qualifier の値で、@@[submitter_seqid]@@ と @@[entry]@@ は entry の名前で展開する
+                ff_definition = source_feature.definition[0] if source_feature.definition else "@@[organism]@@"
+                source_qualifiers = {key: str(values[0]) for key, values in qualifiers.items()
+                                     if len(values) == 1 and not isinstance(values[0], bool)}
+                source_qualifiers["submitter_seqid"] = entry_name
+                source_qualifiers["entry"] = entry_name
+                seq_record.description = create_definition(ff_definition, **source_qualifiers)
 
-                if feature.type == "CDS":
-                    # print(feature)
-                    # print(seq[:10])
-                    # print(len(seq))
-                    add_translate_qualifier(feature, seq)
+        for feature_data in grouped_features.get(entry_id, []):
+            # source feature以外のfeatureを作成
+            feature = create_seqfeature(
+                feature_data.type or "",
+                feature_data.location or "",
+                feature_qualifier_values(feature_data, locus_tag_prefix),
+                seq_length, topology
+            )
 
-                features.append(feature)
+            if feature.type == "CDS":
+                add_translate_qualifier(feature, seq)
+
+            features.append(feature)
 
         # featuresをrecordに設定
-        record.features = features
-        records.append(record)
+        seq_record.features = features
+        records.append(seq_record)
 
     return records
 
@@ -413,11 +388,6 @@ def json2gbk_main() -> None:
     input_file = args.input_file
     output_file = args.output_file
 
-    # JSONファイルの読み込み
-    # with open(input_file) as f:
-    # # with open("draft_genome.json") as f:
-    #     json_data = json.load(f)
-
     # JSONデータをSeqRecordに変換
     records = json_to_seqrecords(input_file)
 
@@ -428,6 +398,3 @@ def json2gbk_main() -> None:
     else:
         for r in records:
             print(r.format("genbank"))
-
-# if __name__ == "__main__":
-#     json2gbk_main()

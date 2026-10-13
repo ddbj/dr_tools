@@ -53,9 +53,10 @@ def generate_out_prefix(mss: MSS) -> str:
 def json2ann(mss_json_file: Path, out_dir: Path | str | None = None, out_prefix: str | None = None) -> None:
     """
     jsonファイルからMSSオブジェクトを生成し、そのMSSオブジェクトを使ってMSS登録ファイルを出力する
+    JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
     out_prefixが指定されていない場合、自動で出力ファイル名を生成する
-    {biosample}_{strain or isolate}.ann, {biosample}_{strain or isolate}.fa
-    biosampleやstrain or isolateが指定されていない場合は、出力ファイル名はmss.annとmss.faとなる。
+    {biosample}_{strain or isolate}.ann, {biosample}_{strain or isolate}.fasta
+    biosampleやstrain or isolateが指定されていない場合は、出力ファイル名はmss.annとmss.fastaとなる。
     """
     mss = MSS.from_json(mss_json_file)
     if out_dir:
@@ -69,7 +70,7 @@ def json2ann(mss_json_file: Path, out_dir: Path | str | None = None, out_prefix:
     if out_prefix is None:
         out_prefix = generate_out_prefix(mss)
     out_ann_file = out_dir / Path(f"{out_prefix}.ann")
-    out_seq_file = out_dir / Path(f"{out_prefix}.fa")
+    out_seq_file = out_dir / Path(f"{out_prefix}.fasta")
     mss.write(out_ann_file, out_seq_file)
 
 
