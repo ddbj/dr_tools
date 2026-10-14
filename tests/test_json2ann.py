@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-from typing import Dict, List
 
 import pytest
 from hypothesis import example, given
@@ -20,10 +19,10 @@ def _build_mss(
     任意に持つ MSS を組み立てる。None の場合はその qualifier を持たせない。"""
     common_entry = Entry(id="COMMON", name="COMMON")
     if biosample is not None:
-        dblink_qualifiers: Dict[str, List[str | bool]] = {"biosample": [biosample]}
+        dblink_qualifiers: dict[str, list[str | bool]] = {"biosample": [biosample]}
         common_entry.features.append(Feature(type="DBLINK", id="feature_1", qualifiers=dblink_qualifiers))
 
-    source_qualifiers: Dict[str, List[str | bool]] = {}
+    source_qualifiers: dict[str, list[str | bool]] = {}
     if strain is not None:
         source_qualifiers["strain"] = [strain]
     if isolate is not None:
@@ -50,7 +49,8 @@ def test_generate_out_prefix_vrl_mss_without_biosample_returns_isolate_value(mss
 
 @pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
 def test_generate_out_prefix_from_json_of_each_record_version_returns_biosample_and_strain(
-    version: str, eg_complete: Dict[str, Path],
+    version: str,
+    eg_complete: dict[str, Path],
 ) -> None:
     assert generate_out_prefix(MSS.from_json(eg_complete[version])) == "SAMD999999_LOOC260"
 
@@ -170,7 +170,7 @@ def test_generate_out_prefix_pbt_result_is_always_a_safe_filename(biosample: str
 
 @pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
 def test_json2ann_complete_out_prefix_none_names_files_by_biosample_and_strain_with_fasta_extension(
-    version: str, eg_complete: Dict[str, Path], tmp_path: Path
+    version: str, eg_complete: dict[str, Path], tmp_path: Path
 ) -> None:
     json2ann(mss_json_file=eg_complete[version], out_dir=tmp_path, out_prefix=None)
     assert tmp_path.joinpath("SAMD999999_LOOC260.ann").exists()
@@ -179,20 +179,22 @@ def test_json2ann_complete_out_prefix_none_names_files_by_biosample_and_strain_w
 
 
 @pytest.mark.parametrize("version", ["v1_json", "v2_json", "v3_json"])
-def test_json2ann_vrl_out_prefix_none_names_files_by_isolate(version: str, eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
+def test_json2ann_vrl_out_prefix_none_names_files_by_isolate(
+    version: str, eg_vrl: dict[str, Path], tmp_path: Path
+) -> None:
     json2ann(mss_json_file=eg_vrl[version], out_dir=tmp_path, out_prefix=None)
     assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.ann").exists()
     assert tmp_path.joinpath("hCov-19_Japan_SZ-NIG-12345_2021.fasta").exists()
 
 
-def test_json2ann_explicit_out_prefix_overrides_auto_naming(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_json2ann_explicit_out_prefix_overrides_auto_naming(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     json2ann(mss_json_file=eg_complete["v3_json"], out_dir=tmp_path, out_prefix="test_prefix")
     assert tmp_path.joinpath("test_prefix.ann").exists()
     assert tmp_path.joinpath("test_prefix.fasta").exists()
     assert not tmp_path.joinpath("SAMD999999_LOOC260.ann").exists()
 
 
-def test_json2ann_missing_out_dir_is_created(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_json2ann_missing_out_dir_is_created(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     out_dir = tmp_path.joinpath("nested", "sub")
     assert not out_dir.exists()
     json2ann(mss_json_file=eg_complete["v3_json"], out_dir=out_dir, out_prefix="test_prefix")
@@ -200,7 +202,7 @@ def test_json2ann_missing_out_dir_is_created(eg_complete: Dict[str, Path], tmp_p
     assert out_dir.joinpath("test_prefix.fasta").exists()
 
 
-def test_json2ann_fasta_file_has_entry_names_and_separators(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_json2ann_fasta_file_has_entry_names_and_separators(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     json2ann(mss_json_file=eg_complete["v3_json"], out_dir=tmp_path, out_prefix="out")
     fasta = tmp_path.joinpath("out.fasta").read_text(encoding="utf-8")
     assert [line for line in fasta.splitlines() if line.startswith(">")] == [">chromosome", ">pPLH-1", ">pPLH-2"]

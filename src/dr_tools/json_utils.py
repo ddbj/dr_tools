@@ -1,8 +1,9 @@
 # This file contains utility functions for working with JSON files
 import json
 import warnings
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Mapping, Tuple, overload
+from typing import Any, Literal, overload
 
 from Bio.Seq import Seq
 from Bio.SeqFeature import SeqFeature
@@ -16,7 +17,7 @@ from ddbj_record.schema.v3 import DdbjRecord as DdbjRecordV3
 from ddbj_record.schema.v3 import Entry, Feature, Qualifier, Source
 
 # MSS の qualifier の形。値の無い qualifier (/pseudo など) は True で表す
-QualifierValues = Dict[str, List[str | bool]]
+QualifierValues = dict[str, list[str | bool]]
 
 DEFAULT_LOCUS_TAG_PREFIX = "LOCUS"
 
@@ -95,7 +96,7 @@ def load_json_to_ddbj_record_instance(
 # === v3 の record を読むための関数 ===
 
 
-def qualifiers_to_values(qualifiers: Mapping[str, List[Qualifier]] | None) -> QualifierValues:
+def qualifiers_to_values(qualifiers: Mapping[str, list[Qualifier]] | None) -> QualifierValues:
     """
     v3 の qualifier を MSS の形 ({名前: [値, ...]}) にする
     value を持たない qualifier (/pseudo など) は True にする
@@ -106,7 +107,7 @@ def qualifiers_to_values(qualifiers: Mapping[str, List[Qualifier]] | None) -> Qu
     }
 
 
-def values_to_qualifiers(values: Mapping[str, List[str | bool]]) -> Dict[str, List[Qualifier]] | None:
+def values_to_qualifiers(values: Mapping[str, list[str | bool]]) -> dict[str, list[Qualifier]] | None:
     """
     MSS の形の qualifier を v3 の qualifier にする
     True (値の無い qualifier) は value を省く。qualifier が 1 つも無ければ None を返す
@@ -150,12 +151,12 @@ def merge_source_qualifiers(common_source: Source | None, source: Source | None)
     return merged
 
 
-def features_by_entry(record: DdbjRecordV3) -> Dict[str, List[Feature]]:
+def features_by_entry(record: DdbjRecordV3) -> dict[str, list[Feature]]:
     """
     record の features を entry の alias (sequence_id) ごとにまとめる。並びは record の順を保つ
     sequence_id を持たない feature はどの entry にも置けないので、警告を出して除く
     """
-    grouped: Dict[str, List[Feature]] = {}
+    grouped: dict[str, list[Feature]] = {}
     for feature in record.features or []:
         if feature.sequence_id is None:
             warnings.warn(f"feature {feature.alias!r} has no sequence_id; skipped", UserWarning, stacklevel=2)
@@ -208,9 +209,10 @@ def feature_qualifier_values(feature: Feature, locus_tag_prefix: str) -> Qualifi
     return qualifiers
 
 
-def get_feature_and_entry(record: DdbjRecordV3, feature_id: str) -> Tuple[Feature, Entry]:
+def get_feature_and_entry(record: DdbjRecordV3, feature_id: str) -> tuple[Feature, Entry]:
     """
     alias が feature_id の feature と、その feature が載る entry を返す
+    entry は features_by_entry と同じく get_entry_id (alias、無ければ name) が feature の sequence_id と一致するものを探す
     """
     features = [feature for feature in record.features or [] if feature.alias == feature_id]
     if len(features) == 0:
@@ -218,14 +220,19 @@ def get_feature_and_entry(record: DdbjRecordV3, feature_id: str) -> Tuple[Featur
     if len(features) > 1:
         raise ValueError(f"Multiple features with id {feature_id} found in JSON data")
     feature = features[0]
-    entries = [entry for entry in (record.sequences.entries if record.sequences else None) or []
-               if entry.alias == feature.sequence_id]
+    if feature.sequence_id is None:
+        raise ValueError(f"Feature {feature_id} has no sequence_id")
+    entries = [
+        entry
+        for entry in (record.sequences.entries if record.sequences else None) or []
+        if (entry.alias or entry.name) == feature.sequence_id
+    ]
     if len(entries) == 0:
         raise ValueError(f"Entry {feature.sequence_id} of feature {feature_id} not found in JSON data")
     return feature, entries[0]
 
 
-def get_feature_json(json_file: Path, feature_id: str) -> Dict[str, Any]:
+def get_feature_json(json_file: Path, feature_id: str) -> dict[str, Any]:
     """
     JSONデータからfeature_idに対応するfeatureの情報を辞書として取得する
     DFAST web serviceの feature 詳細で表示される情報を取得する
@@ -237,7 +244,7 @@ def get_feature_json(json_file: Path, feature_id: str) -> Dict[str, Any]:
     feature, entry = get_feature_and_entry(record, feature_id)
     locus_tag_prefix = get_locus_tag_prefix(record)
 
-    feature_json: Dict[str, Any] = feature.model_dump(exclude_none=True)
+    feature_json: dict[str, Any] = feature.model_dump(exclude_none=True)
     locus_tag = get_locus_tag(feature, locus_tag_prefix)
     if locus_tag is not None:
         feature_json.setdefault("qualifiers", {})["locus_tag"] = [{"value": locus_tag}]
@@ -250,13 +257,13 @@ def get_feature_json(json_file: Path, feature_id: str) -> Dict[str, Any]:
     return feature_json
 
 
-def json_to_seqfeature(feature: Feature, entry: Entry, locus_tag_prefix: str) -> Tuple[SeqFeature, Seq]:
+def json_to_seqfeature(feature: Feature, entry: Entry, locus_tag_prefix: str) -> tuple[SeqFeature, Seq]:
     """
     v3 の feature を BioPython SeqFeature object に変換し、
     そのオブジェクトと、その feature location が指す配列を Seq objectとして返す
     """
-    from dr_tools.json2biopython import (add_translate_qualifier,
-                                         create_seqfeature)
+    # json2biopython が json_utils を import するので、ここで import して循環を避ける
+    from dr_tools.json2biopython import add_translate_qualifier, create_seqfeature  # noqa: PLC0415
 
     seq = Seq(entry.sequence or "")
     topology = entry.topology or "linear"

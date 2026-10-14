@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Dict, Tuple
 
 import pytest
 
@@ -30,55 +29,65 @@ TRAD_GNM_V3_JSON = FIXTURES_DIR.joinpath("trad_gnm.json")
 
 # WGS (draft) の MSS。examples には GNM しかないので、登録区分で挙動が変わる箇所のために置く。
 # contig01 は circular、contig02 は linear。どちらの配列も 30 bp で、CDS は 1 つ。
-WGS_ANN = "\n".join([
-    "COMMON\tDATATYPE\t\ttype\tWGS",
-    "\tKEYWORD\t\tkeyword\tWGS",
-    "\tSUBMITTER\t\tab_name\tMishima,H.",
-    "\t\t\tcontact\tHanako Mishima",
-    "\t\t\temail\tmishima@ddbj.nig.ac.jp",
-    "\t\t\tinstitute\tNational Institute of Genetics",
-    "\t\t\tcountry\tJapan",
-    "\t\t\tcity\tMishima",
-    "\t\t\tstreet\tYata 1111",
-    "\t\t\tzip\t411-8540",
-    "\tREFERENCE\t\ttitle\tDraft genome of a test organism",
-    "\t\t\tab_name\tMishima,H.",
-    "\t\t\tstatus\tUnpublished",
-    "\t\t\tyear\t2026",
-    "\tCOMMENT\t\tline\tAnnotated by DFAST 1.4.2 https://dfast.ddbj.nig.ac.jp/",
-    "contig01\tsource\t1..30\torganism\tEscherichia coli",
-    "\t\t\tmol_type\tgenomic DNA",
-    "\t\t\tff_definition\t@@[organism]@@ DNA, @@[submitter_seqid]@@",
-    "\tTOPOLOGY\t\tcircular\t",
-    "\tCDS\t1..30\tproduct\thypothetical protein",
-    "\t\t\ttransl_table\t11",
-    "\t\t\tcodon_start\t1",
-    "\t\t\tlocus_tag\tTEST_00010",
-    "contig02\tsource\t1..30\torganism\tEscherichia coli",
-    "\t\t\tmol_type\tgenomic DNA",
-    "\t\t\tff_definition\t@@[organism]@@ DNA, @@[submitter_seqid]@@",
-    "\tCDS\t1..30\tproduct\thypothetical protein",
-    "\t\t\ttransl_table\t11",
-    "\t\t\tcodon_start\t1",
-    "\t\t\tlocus_tag\tTEST_00020",
-]) + "\n"
-WGS_SEQ = "\n".join([
-    ">contig01",
-    "atgaaacgcattagcaccaccattaccacc",
-    "//",
-    ">contig02",
-    "atgaaacgcattagcaccaccattaccacc",
-    "//",
-]) + "\n"
+WGS_ANN = (
+    "\n".join(
+        [
+            "COMMON\tDATATYPE\t\ttype\tWGS",
+            "\tKEYWORD\t\tkeyword\tWGS",
+            "\tSUBMITTER\t\tab_name\tMishima,H.",
+            "\t\t\tcontact\tHanako Mishima",
+            "\t\t\temail\tmishima@ddbj.nig.ac.jp",
+            "\t\t\tinstitute\tNational Institute of Genetics",
+            "\t\t\tcountry\tJapan",
+            "\t\t\tcity\tMishima",
+            "\t\t\tstreet\tYata 1111",
+            "\t\t\tzip\t411-8540",
+            "\tREFERENCE\t\ttitle\tDraft genome of a test organism",
+            "\t\t\tab_name\tMishima,H.",
+            "\t\t\tstatus\tUnpublished",
+            "\t\t\tyear\t2026",
+            "\tCOMMENT\t\tline\tAnnotated by DFAST 1.4.2 https://dfast.ddbj.nig.ac.jp/",
+            "contig01\tsource\t1..30\torganism\tEscherichia coli",
+            "\t\t\tmol_type\tgenomic DNA",
+            "\t\t\tff_definition\t@@[organism]@@ DNA, @@[submitter_seqid]@@",
+            "\tTOPOLOGY\t\tcircular\t",
+            "\tCDS\t1..30\tproduct\thypothetical protein",
+            "\t\t\ttransl_table\t11",
+            "\t\t\tcodon_start\t1",
+            "\t\t\tlocus_tag\tTEST_00010",
+            "contig02\tsource\t1..30\torganism\tEscherichia coli",
+            "\t\t\tmol_type\tgenomic DNA",
+            "\t\t\tff_definition\t@@[organism]@@ DNA, @@[submitter_seqid]@@",
+            "\tCDS\t1..30\tproduct\thypothetical protein",
+            "\t\t\ttransl_table\t11",
+            "\t\t\tcodon_start\t1",
+            "\t\t\tlocus_tag\tTEST_00020",
+        ]
+    )
+    + "\n"
+)
+WGS_SEQ = (
+    "\n".join(
+        [
+            ">contig01",
+            "atgaaacgcattagcaccaccattaccacc",
+            "//",
+            ">contig02",
+            "atgaaacgcattagcaccaccattaccacc",
+            "//",
+        ]
+    )
+    + "\n"
+)
 
 
 @pytest.fixture
-def eg_complete() -> Dict[str, Path]:
+def eg_complete() -> dict[str, Path]:
     return EG_COMPLETE
 
 
 @pytest.fixture
-def eg_vrl() -> Dict[str, Path]:
+def eg_vrl() -> dict[str, Path]:
     return EG_VRL
 
 
@@ -98,7 +107,7 @@ def mss_vrl() -> MSS:
 
 
 @pytest.fixture(scope="session")
-def full_record(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Path]:
+def full_record(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     """
     完全な配列を持つ record JSON (v1 / v2 / v3) を同じ ann / fa から作って返す
 
@@ -116,7 +125,7 @@ def full_record(tmp_path_factory: pytest.TempPathFactory) -> Dict[str, Path]:
 
 
 @pytest.fixture
-def wgs_mss_files(tmp_path: Path) -> Tuple[Path, Path]:
+def wgs_mss_files(tmp_path: Path) -> tuple[Path, Path]:
     """WGS (draft) の ann / fa を書き出してそのパスを返す"""
     ann_file = tmp_path.joinpath("wgs.ann")
     seq_file = tmp_path.joinpath("wgs.fa")

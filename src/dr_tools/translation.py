@@ -16,6 +16,7 @@ SeqFeature を組み立てるので、その経路が存在しない)。
   (pos:START..END,aa:OTHER)           - 非標準アミノ酸 -> X
   (pos:START..END,aa:Met)             - AUG 以外の開始コドン -> M
 """
+
 import logging
 import re
 import warnings
@@ -29,12 +30,14 @@ logger = logging.getLogger(__name__)
 
 # 3 文字表記 (と特殊キーワード) から 1 文字表記へのアミノ酸の対応
 _AA_3TO1: dict[str, str] = {**IUPACData.protein_letters_3to1_extended}
-_AA_3TO1.update({
-    "Term": "*",   # ストップコドン (部分コドンの場合を含む)
-    "TERM": "*",
-    "Other": "X",  # 非標準・未指定のアミノ酸
-    "OTHER": "X",
-})
+_AA_3TO1.update(
+    {
+        "Term": "*",  # ストップコドン (部分コドンの場合を含む)
+        "TERM": "*",
+        "Other": "X",  # 非標準・未指定のアミノ酸
+        "OTHER": "X",
+    }
+)
 
 _TRANSL_EXCEPT_PATTERN = re.compile(r"\(pos:(complement\()?(\d+)(?:\.\.(\d+))?(?(1)\)),aa:(\w+)\)")
 
@@ -159,7 +162,9 @@ def translate_cds_with_transl_except(feature: SeqFeature, parent_seq: Seq, stop_
         else:
             logger.warning(
                 "transl_except codon index %d is out of range (protein length %d) on feature %s; qualifier ignored",
-                index, len(protein), feature.id,
+                index,
+                len(protein),
+                feature.id,
             )
 
     # cds=True と同じく開始コドンを M にする (ATG は元から M なので、それ以外の開始コドンのため)

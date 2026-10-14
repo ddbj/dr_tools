@@ -1,22 +1,23 @@
 FROM python:3.12-bookworm
 
-# パッケージリストの更新とPythonのインストール
-RUN apt update && \
-    apt install -y \
-    curl \
-    less && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -s /usr/bin/python3 /usr/bin/python
+COPY --from=ghcr.io/astral-sh/uv:0.12 /uv /uvx /bin/
 
-RUN alias ll='ls -l'
-
-# biopythonのインストール
-RUN python3 -m pip install --break-system-packages biopython==1.83
+# venv は bind mount される /dr_tools の外に置く。
+# container は host の UID で動き /opt/venv に書けないので、bytecode は build 時に作る。
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    PATH="/opt/venv/bin:${PATH}"
 
 WORKDIR /dr_tools
-COPY . .
-RUN python3 -m pip install -e .[dev]
 
-ENTRYPOINT [ "" ]
-# Pythonのバージョン確認用コマンド
-CMD ["python3", "--version"]
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --extra dev --no-install-project
+
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --extra dev
+
+CMD ["sleep", "infinity"]

@@ -75,6 +75,7 @@ drt_json2fasta("ddbj_record.json", "out_dir")
 # format_=False の場合、数値として保存
 # output_fileを指定しない場合、辞書を返す
 # keyはDFAST webのUIで表示するときと同じ名称
+# GC Content は N を除いた塩基に対する G と C の割合。配列が無いときと、全ての塩基が N のときは 0
 drt_json2stats("ddbj_record.json", format_=True, output_file="genome_stats.json")
 
 
@@ -106,7 +107,7 @@ print(json.dumps(data, indent=2))
 }
 ```
 
-その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス (`MSS.parse` が ann / seq を、`MSS.from_json` / `MSS.from_record` が record を読む)、`dr_tools.json_utils` に record v3 を扱うための関数を定義している。
+その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス (`MSS.parse` が ann / seq を、`MSS.from_json` / `MSS.from_record` が record を読む)、`dr_tools.json_utils` に record v3 を扱うための関数を定義している。`MSS.parse` は、列が 5 つに満たない ann の行を、足りない列を空として読む。seq は `>` で始まる行を配列名にし、`//` だけの行を読み飛ばす。
 
 `examples/` には `complete_genome` (DFAST の完全ゲノム) と `vrl_result` (DFAST_VRL のウイルスゲノム) の ann / fa と、それぞれを v1 (`*.json`)、v2 (`*.v2.json`)、v3 (`*.v3.json`) にした JSON がある。JSON の配列は 10 文字に切り詰めてある。
 
@@ -122,30 +123,31 @@ drt_json2stats_for_dfast [-o out.json] [-f] input_file.json
 
 ## Development
 
-`uv.lock` があるので uv で環境を作る。
+開発環境は docker compose の `python-dev` である。image は `uv.lock` どおりの依存を `/opt/venv` に入れ、container は host の UID / GID (既定は 1000) で動く。
+
+```bash
+docker compose up -d --build
+docker compose exec python-dev pytest
+docker compose exec python-dev mypy
+docker compose exec python-dev ruff check
+docker compose exec python-dev ruff format
+```
+
+`uv.lock` を変えたら、`docker compose up -d --build` で image を作り直す。
+
+container を使わない場合は、uv で環境を作る。
 
 ```bash
 uv sync --extra dev
 uv run pytest
-uv run mypy
 ```
 
 `ddbj-record` を進めるときは `uv lock -P ddbj-record` を実行する。
 
-uv を使わない場合:
+GitHub Actions (`.github/workflows/test.yml`) は、Python 3.10 から 3.14 のそれぞれで pytest と mypy を実行する。pyproject.toml の下限 (Python 3.10 と biopython 1.84) でも pytest を実行し、ほかに `ruff check` と `ruff format --check` を実行する。下限での pytest は、手元では次のコマンドで実行する。
 
 ```bash
-pip install -e .[dev]
-# or
-pip install --break-system-packages -e .[dev]
-```
-
-Docker env:
-
-```bash
-docker compose up -d --build
-# then
-docker compose exec python-dev bash
+uv run --isolated --python 3.10 --extra dev --with biopython==1.84 pytest
 ```
 
 `tests/fixtures/trad_gnm.json` は ddbj-record-specifications の `tests/fixtures/v3/records/trad_gnm.json` の写しで、`examples/complete_genome.ann` から `drt_ann2json` (v3) が作る record と一致することを確かめるのに使う。

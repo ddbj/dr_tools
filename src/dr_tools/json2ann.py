@@ -59,10 +59,7 @@ def json2ann(mss_json_file: Path, out_dir: Path | str | None = None, out_prefix:
     biosampleやstrain or isolateが指定されていない場合は、出力ファイル名はmss.annとmss.fastaとなる。
     """
     mss = MSS.from_json(mss_json_file)
-    if out_dir:
-        out_dir = Path(out_dir)
-    else:
-        out_dir = Path(".")
+    out_dir = Path(out_dir) if out_dir else Path(".")
 
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
@@ -80,10 +77,22 @@ def main() -> None:
     jsonファイルからMSSオブジェクトを生成し、そのMSSオブジェクトを使ってMSS登録ファイルを出力する
     """
     # 引数のパース
-    parser = argparse.ArgumentParser(description='Convert MSS json file to MSS annotation and sequence files')
-    parser.add_argument('json_file', type=str, help='MSS json file')
-    parser.add_argument('-O', '--out_dir', type=str, help='Output directory. By default, output files are saved in the current directory.', default=None)
-    parser.add_argument('-o', '--out_prefix', type=str, help='Output file prefix. By default, prefix is automatically generated.', default=None)
+    parser = argparse.ArgumentParser(description="Convert MSS json file to MSS annotation and sequence files")
+    parser.add_argument("json_file", type=str, help="MSS json file")
+    parser.add_argument(
+        "-O",
+        "--out_dir",
+        type=str,
+        help="Output directory. By default, output files are saved in the current directory.",
+        default=None,
+    )
+    parser.add_argument(
+        "-o",
+        "--out_prefix",
+        type=str,
+        help="Output file prefix. By default, prefix is automatically generated.",
+        default=None,
+    )
 
     if len(sys.argv) == 1:
         parser.print_help()

@@ -1,24 +1,26 @@
-#!/usr/bin/env python3
 import argparse
 import logging
 import re
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Sequence
 
 from Bio import SeqIO
 from Bio.Data.CodonTable import TranslationError
 from Bio.Seq import Seq
 from Bio.SeqFeature import Location, Reference, SeqFeature
 from Bio.SeqRecord import SeqRecord
-from ddbj_record.schema.v3 import (Organization, Person, Publication,
-                                   Relation, StructuredComment)
+from ddbj_record.schema.v3 import Organization, Person, Publication, Relation, StructuredComment
 
-from dr_tools.json_utils import (feature_qualifier_values, features_by_entry,
-                                 get_entry_id, get_locus_tag_prefix,
-                                 load_json_to_ddbj_record_instance,
-                                 merge_source_qualifiers)
+from dr_tools.json_utils import (
+    feature_qualifier_values,
+    features_by_entry,
+    get_entry_id,
+    get_locus_tag_prefix,
+    load_json_to_ddbj_record_instance,
+    merge_source_qualifiers,
+)
 from dr_tools.MSS import DB_TO_DBLINK_KEY, reference_status_to_mss
 from dr_tools.translation import translate_cds_with_transl_except
 
@@ -32,7 +34,7 @@ _DBXREF_LABELS = {
 }
 
 
-def _join_authors(authors: List[str]) -> str:
+def _join_authors(authors: list[str]) -> str:
     """著者の略記を GenBank の AUTHORS の書き方 ("A, B and C") にする"""
     if len(authors) == 1:
         return authors[0]
@@ -83,10 +85,7 @@ def create_submitter(submitters: Sequence[Person] | None) -> Reference | None:
     contact_text = "Contact:" + (contact.name or "Contact Person")
     institute = (institution.name if institution is not None else None) or "Institute Name"
     department = institution.department if institution is not None else None
-    if department:
-        affiliation = f"{institute}, {department};"
-    else:
-        affiliation = institute
+    affiliation = f"{institute}, {department};" if department else institute
     street = (address.street if address is not None else None) or "Street Name"
     city = (address.city if address is not None else None) or "City"
     state = address.state if address is not None else None
@@ -147,16 +146,18 @@ def create_definition(ff_definition: str, **kwargs: str) -> str:
     :param kwargs: 置換する変数名とその値
     :return: 置換後のテキスト
     """
+
     def replacer(match: re.Match[str]) -> str:
         placeholder = match.group(1)  # @@[ ]@@の中の文字列を取得
         return kwargs.get(placeholder, match.group(0))  # 変数があれば置換、なければそのまま
 
     # 正規表現で@@[ ]@@を検索し、置換処理を行う
-    return re.sub(r'@@\[(.*?)\]@@', replacer, ff_definition)
+    return re.sub(r"@@\[(.*?)\]@@", replacer, ff_definition)
 
 
-def create_seqfeature(feature_type: str, location: str, qualifiers: Mapping[str, Sequence[str | bool]],
-                      seq_length: int, topology: str) -> SeqFeature:
+def create_seqfeature(
+    feature_type: str, location: str, qualifiers: Mapping[str, Sequence[str | bool]], seq_length: int, topology: str
+) -> SeqFeature:
     """
     featureの情報からBioPythonのSeqFeatureオブジェクトを作成する
     値を持たない qualifier (True) は空文字列にする
@@ -165,20 +166,16 @@ def create_seqfeature(feature_type: str, location: str, qualifiers: Mapping[str,
     feature_location = Location.fromstring(location, length=seq_length, circular=circular)  # type: ignore[no-untyped-call]
 
     # qualifiersの変換
-    converted_qualifiers: Dict[str, List[str]] = {}
+    converted_qualifiers: dict[str, list[str]] = {}
     for key, values in qualifiers.items():
         # Booleanの場合は空文字列に変換
-        if len(values) == 0:
-            converted_qualifiers[key] = [""]
-        elif isinstance(values[0], bool):
+        if len(values) == 0 or isinstance(values[0], bool):
             converted_qualifiers[key] = [""]
         else:
             converted_qualifiers[key] = [str(value) for value in values]
 
     return SeqFeature(  # type: ignore[no-untyped-call]
-        location=feature_location,
-        type=feature_type,
-        qualifiers=converted_qualifiers
+        location=feature_location, type=feature_type, qualifiers=converted_qualifiers
     )
 
 
@@ -188,7 +185,7 @@ def add_dbxrefs(record: SeqRecord, relations: Sequence[Relation] | None) -> None
     同じ DB の id が複数あれば ", " でつなぐ
     """
     record.dbxrefs = []
-    ids_by_key: Dict[str, List[str]] = {}
+    ids_by_key: dict[str, list[str]] = {}
     for relation in relations or []:
         if relation.type != "xref" or relation.target is None or not relation.target.id:
             continue
@@ -201,8 +198,9 @@ def add_dbxrefs(record: SeqRecord, relations: Sequence[Relation] | None) -> None
             record.dbxrefs.append(f"{label}:" + ", ".join(ids_by_key[key]))
 
 
-def add_comment(record: SeqRecord, comments: Sequence[str] | None,
-                structured_comments: Sequence[StructuredComment] | None) -> None:
+def add_comment(
+    record: SeqRecord, comments: Sequence[str] | None, structured_comments: Sequence[StructuredComment] | None
+) -> None:
     """
     COMMENT および ST_COMMENT の情報を追加する
 
@@ -212,7 +210,7 @@ def add_comment(record: SeqRecord, comments: Sequence[str] | None,
     """
     record.annotations["comment"] = "\n".join(comments or [])
 
-    structured_comment: Dict[str, Dict[str, str]] = {}
+    structured_comment: dict[str, dict[str, str]] = {}
     for item in structured_comments or []:
         if item.tagset_id:
             structured_comment[item.tagset_id] = dict(item.fields or {})
@@ -220,12 +218,12 @@ def add_comment(record: SeqRecord, comments: Sequence[str] | None,
         record.annotations["structured_comment"] = structured_comment  # type: ignore[assignment]
 
 
-def set_date(record: SeqRecord, date: Optional[str] = None) -> None:
+def set_date(record: SeqRecord, date: str | None = None) -> None:
     """
     日付を設定する
     """
     if date is None:
-        date = datetime.now().strftime("%d-%b-%Y").upper()
+        date = datetime.now().astimezone().strftime("%d-%b-%Y").upper()
     record.annotations["date"] = date
 
 
@@ -233,18 +231,19 @@ def add_translate_qualifier(feature: SeqFeature, seq: Seq) -> None:
     """
     CDS featureにtranslation qualifierを追加する
     翻訳と transl_except の解釈は dr_tools.translation に一本化してある
-    翻訳できない配列 (塩基以外の文字を含む等) では translation を付けず、警告だけ出す
+    翻訳できない feature (塩基以外の文字を含む配列、無い transl_table、数字でない codon_start) では
+    translation を付けず、警告だけ出す
     """
     try:
         translation = translate_cds_with_transl_except(feature, seq)
-    except TranslationError as err:
+    except (TranslationError, KeyError, ValueError) as err:
         logger.warning("Cannot translate the feature %s: %s", feature.id, err)
         return
     if translation:
         feature.qualifiers["translation"] = [str(translation)]
 
 
-def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
+def json_to_seqrecords(json_file: Path) -> list[SeqRecord]:
     """
     JSONデータをBioPythonのSeqRecordオブジェクトのリストに変換する
     JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
@@ -276,17 +275,15 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
         entry_name = entry_data.name or entry_id
         seq = Seq(entry_data.sequence or "")
 
-        seq_record = SeqRecord(
-            seq=seq,
-            id=entry_id,
-            name=entry_name,
-            description=""
-        )
+        seq_record = SeqRecord(seq=seq, id=entry_id, name=entry_name, description="")
 
         # source featureの作成 (COMMON_SOURCEの内容を entry の source で上書きして展開する)
         source_features = entry_data.source_features or []
-        first_source = merge_source_qualifiers(common_source, source_features[0].source) if source_features \
+        first_source = (
+            merge_source_qualifiers(common_source, source_features[0].source)
+            if source_features
             else merge_source_qualifiers(common_source, None)
+        )
 
         # molecule_typeの設定
         mol_type_values = first_source.get("mol_type", ["DNA"])
@@ -320,8 +317,11 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
         add_dbxrefs(seq_record, record.relations)
 
         # commentの設定
-        add_comment(seq_record, submission.comments if submission is not None else None,
-                    sequences.structured_comments if sequences is not None else None)
+        add_comment(
+            seq_record,
+            submission.comments if submission is not None else None,
+            sequences.structured_comments if sequences is not None else None,
+        )
 
         # dateの設定
         set_date(seq_record, None)
@@ -334,18 +334,18 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
         for i, source_feature in enumerate(source_features):
             qualifiers = merge_source_qualifiers(common_source, source_feature.source)
             feature = create_seqfeature(
-                "source",
-                source_feature.location or "",
-                qualifiers,
-                seq_length, topology
+                "source", source_feature.location or "", qualifiers, seq_length, topology
             )  # seq_lengthとtopologyはlocationを解析するために必要
             features.append(feature)
             if i == 0:
                 # DEFINITION は最初の source feature の ff_definition から作る
                 # @@[organism]@@ などは source の qualifier の値で、@@[submitter_seqid]@@ と @@[entry]@@ は entry の名前で展開する
                 ff_definition = source_feature.definition[0] if source_feature.definition else "@@[organism]@@"
-                source_qualifiers = {key: str(values[0]) for key, values in qualifiers.items()
-                                     if len(values) == 1 and not isinstance(values[0], bool)}
+                source_qualifiers = {
+                    key: str(values[0])
+                    for key, values in qualifiers.items()
+                    if len(values) == 1 and not isinstance(values[0], bool)
+                }
                 source_qualifiers["submitter_seqid"] = entry_name
                 source_qualifiers["entry"] = entry_name
                 seq_record.description = create_definition(ff_definition, **source_qualifiers)
@@ -356,7 +356,8 @@ def json_to_seqrecords(json_file: Path) -> List[SeqRecord]:
                 feature_data.type or "",
                 feature_data.location or "",
                 feature_qualifier_values(feature_data, locus_tag_prefix),
-                seq_length, topology
+                seq_length,
+                topology,
             )
 
             if feature.type == "CDS":
@@ -376,9 +377,9 @@ def json2gbk_main() -> None:
     JSONファイルをGenBankファイルに変換する
     出力 (-o, --output_file) が指定されていない場合は、標準出力に出力する
     """
-    parser = argparse.ArgumentParser(description='Convert JSON file to GenBank file')
-    parser.add_argument('input_file', type=str, help='Input JSON file')
-    parser.add_argument('-o', '--output_file', type=str, help='Output GenBank file', default=None)
+    parser = argparse.ArgumentParser(description="Convert JSON file to GenBank file")
+    parser.add_argument("input_file", type=str, help="Input JSON file")
+    parser.add_argument("-o", "--output_file", type=str, help="Output GenBank file", default=None)
 
     if len(sys.argv) == 1:
         parser.print_help()

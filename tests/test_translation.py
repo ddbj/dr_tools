@@ -54,7 +54,8 @@ def test_translate_cds_with_transl_except_first_position_exception_overrides_m_f
     # そちらが優先され、M 強制は行われない。
     seq = "GTG" + BASE_SEQ[3:]
     feature = _make_cds(
-        "1..30", 30,
+        "1..30",
+        30,
         {"transl_table": ["11"], "transl_except": ["(pos:1..3,aa:OTHER)"]},
     )
     result = translate_cds_with_transl_except(feature, Seq(seq))
@@ -94,7 +95,8 @@ def test_translate_cds_with_transl_except_complement_location_sec_maps_to_correc
     # codon index 1 ("AAA", 親配列上では相補鎖の 25-27 bp) を aa:Sec で U に差し替える。
     parent = Seq(BASE_SEQ).reverse_complement()  # type: ignore[no-untyped-call]
     feature = _make_cds(
-        "complement(1..30)", 30,
+        "complement(1..30)",
+        30,
         {"transl_except": ["(pos:complement(25..27),aa:Sec)"]},
     )
     result = translate_cds_with_transl_except(feature, parent)
@@ -105,12 +107,15 @@ def test_translate_cds_with_transl_except_multiple_exceptions_all_applied_withou
     # transl_except を 3 個 (Sec, Pyl, TERM) 同時に持つ feature でも、例外を投げずに
     # 全部が反映される。末尾を TERM にした場合、末尾のストップ記号は 1 つ落ちる。
     feature = _make_cds(
-        "1..30", 30,
-        {"transl_except": [
-            "(pos:4..6,aa:Sec)",
-            "(pos:25..27,aa:Pyl)",
-            "(pos:28..30,aa:TERM)",
-        ]},
+        "1..30",
+        30,
+        {
+            "transl_except": [
+                "(pos:4..6,aa:Sec)",
+                "(pos:25..27,aa:Pyl)",
+                "(pos:28..30,aa:TERM)",
+            ]
+        },
     )
     result = translate_cds_with_transl_except(feature, Seq(BASE_SEQ))
     assert str(result) == "MURISTTIO"

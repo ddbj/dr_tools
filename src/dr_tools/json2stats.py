@@ -1,25 +1,26 @@
 """
 JSON ファイルを読み込んで、ゲノムサイズ、遺伝子数などの統計情報を取得する
 """
+
 import argparse
 import json
 import sys
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any
 
 from Bio.SeqFeature import Location
 from ddbj_record.schema.v3 import Entry, Feature
 
-from dr_tools.json_utils import (features_by_entry, get_entry_id,
-                                 load_json_to_ddbj_record_instance)
+from dr_tools.json_utils import features_by_entry, get_entry_id, load_json_to_ddbj_record_instance
 
 
 def _sequence_length(entry: Entry) -> int:
     return len(entry.sequence or "")
 
 
-def count_features(features: List[Feature]) -> Dict[str, int]:
+def count_features(features: list[Feature]) -> dict[str, int]:
     """
     feature リストから、各種遺伝子の数をカウントする
     """
@@ -28,30 +29,31 @@ def count_features(features: List[Feature]) -> Dict[str, int]:
     return dict(feature_counts)
 
 
-def get_genome_stats(entries: List[Entry]) -> Dict[str, Any]:
+def get_genome_stats(entries: list[Entry]) -> dict[str, Any]:
     """
     エントリーリストからゲノムサイズ、N数のカウント等を行う
+    GC 含量は N を除いた塩基に対する G と C の割合。N を除いた塩基が無ければ 0 にする
     """
     number_of_entries = len(entries)
     all_sequences = "".join([entry.sequence or "" for entry in entries])
     all_sequences = all_sequences.upper()
     genome_size = len(all_sequences)
-    number_of_N = all_sequences.count("N")
+    number_of_n = all_sequences.count("N")
     number_of_gc = all_sequences.count("G") + all_sequences.count("C")
-    gc_content = (number_of_gc - number_of_N) / (genome_size - number_of_N)
-    n_ratio = number_of_N / genome_size
-    D = {
+    number_of_non_n = genome_size - number_of_n
+    gc_content = number_of_gc / number_of_non_n if number_of_non_n else 0.0
+    n_ratio = number_of_n / genome_size if genome_size else 0.0
+    return {
         "genome_size": genome_size,
         "number_of_sequences": number_of_entries,
         "gc_content": gc_content,
-        "gap_ratio": n_ratio
+        "gap_ratio": n_ratio,
     }
-    return D
 
 
-def get_N50(entries: List[Entry]) -> Optional[int]:
+def get_N50(entries: list[Entry]) -> int:  # noqa: N802  公開している関数の名前を変えない
     """
-    エントリーリストからN50を計算する
+    エントリーリストからN50を計算する。entry が無ければ 0 を返す
     """
     seq_lengths = [_sequence_length(entry) for entry in entries]
     seq_lengths.sort(reverse=True)
@@ -63,14 +65,16 @@ def get_N50(entries: List[Entry]) -> Optional[int]:
         if cum_length >= half_length:
             return length
 
-    return None
+    return 0
 
 
-def get_coding_ratio(entries: List[Entry], grouped_features: Mapping[str, List[Feature]]) -> float:
+def get_coding_ratio(entries: list[Entry], grouped_features: Mapping[str, list[Feature]]) -> float:
     """
     エントリーリストと entry ごとの feature からコーディング領域の割合を計算する
     CDSがオーバーラップしている可能性もあるが、考慮していないので簡易的な実装
+    配列の長さの合計が 0 なら 0 を返す
     """
+
     def _get_feature_length(feature: Feature, seq_length: int, circular: bool) -> int:
         return len(Location.fromstring(feature.location or "", seq_length, circular))  # type: ignore[no-untyped-call]
 
@@ -79,15 +83,17 @@ def get_coding_ratio(entries: List[Entry], grouped_features: Mapping[str, List[F
     for entry in entries:
         circular = entry.topology == "circular"
         seq_length = _sequence_length(entry)
-        cds_features = [_get_feature_length(feature, seq_length, circular)
-                        for feature in grouped_features.get(get_entry_id(entry), []) if feature.type == "CDS"]
+        cds_features = [
+            _get_feature_length(feature, seq_length, circular)
+            for feature in grouped_features.get(get_entry_id(entry), [])
+            if feature.type == "CDS"
+        ]
         total_length += seq_length
         coding_length += sum(cds_features)
-    coding_ratio = coding_length / total_length
-    return coding_ratio
+    return coding_length / total_length if total_length else 0.0
 
 
-def json2stats(json_file: Path) -> Dict[str, Any]:
+def json2stats(json_file: Path) -> dict[str, Any]:
     """
     JSON ファイルから統計情報を取得する
     JSON は record v1 / v2 / v3 のどれでもよい (v1 / v2 は v3 に変換してから読む)
@@ -109,7 +115,9 @@ def json2stats(json_file: Path) -> Dict[str, Any]:
     return stats
 
 
-def json2stats_for_dfast(json_file: Path, format_: bool = False, output_file: Path | None = None) -> Dict[str, Any] | None:
+def json2stats_for_dfast(
+    json_file: Path, format_: bool = False, output_file: Path | None = None
+) -> dict[str, Any] | None:
     """
     DFAST 用の統計情報を取得する
     format=True の場合、書式を整える
@@ -132,34 +140,34 @@ def json2stats_for_dfast(json_file: Path, format_: bool = False, output_file: Pa
     """
     stats = json2stats(json_file)
     if not format_:
-        D = {
-            'Total Length (bp)': stats['genome_size'],
-            'No. of Sequences': stats['number_of_sequences'],
-            'GC Content (%)': stats['gc_content'] * 100,
-            'N50 (bp)': stats['N50'],
-            'No. of CDSs': stats.get('CDS', 0),
-            'No. of tRNA/tmRNA': stats.get('tRNA', 0) + stats.get('tmRNA', 0),
-            'No. of rRNA': stats.get('rRNA', 0),
-            'No. of CRISPRS': stats.get('repeat_region', 0),
-            'Coding Ratio (%)': stats['coding_ratio'] * 100
+        dfast_stats = {
+            "Total Length (bp)": stats["genome_size"],
+            "No. of Sequences": stats["number_of_sequences"],
+            "GC Content (%)": stats["gc_content"] * 100,
+            "N50 (bp)": stats["N50"],
+            "No. of CDSs": stats.get("CDS", 0),
+            "No. of tRNA/tmRNA": stats.get("tRNA", 0) + stats.get("tmRNA", 0),
+            "No. of rRNA": stats.get("rRNA", 0),
+            "No. of CRISPRS": stats.get("repeat_region", 0),
+            "Coding Ratio (%)": stats["coding_ratio"] * 100,
         }
     else:
-        D = {
-            'Total Length (bp)': f"{stats['genome_size']:,d}",
-            'No. of Sequences': f"{stats['number_of_sequences']:,d}",
-            'GC Content (%)': f"{stats['gc_content']*100:0.1f}%",
-            'N50 (bp)': f"{stats['N50']:,d}",
-            'No. of CDSs': f"{stats.get('CDS', 0):,d}",
-            'No. of tRNA/tmRNA': f"{stats.get('tRNA', 0) + stats.get('tmRNA', 0):,d}",
-            'No. of rRNA': f"{stats.get('rRNA', 0):,d}",
-            'No. of CRISPRS': f"{stats.get('repeat_region', 0):,d}",
-            'Coding Ratio (%)': f"{stats['coding_ratio']*100:.1f}%"
+        dfast_stats = {
+            "Total Length (bp)": f"{stats['genome_size']:,d}",
+            "No. of Sequences": f"{stats['number_of_sequences']:,d}",
+            "GC Content (%)": f"{stats['gc_content'] * 100:0.1f}%",
+            "N50 (bp)": f"{stats['N50']:,d}",
+            "No. of CDSs": f"{stats.get('CDS', 0):,d}",
+            "No. of tRNA/tmRNA": f"{stats.get('tRNA', 0) + stats.get('tmRNA', 0):,d}",
+            "No. of rRNA": f"{stats.get('rRNA', 0):,d}",
+            "No. of CRISPRS": f"{stats.get('repeat_region', 0):,d}",
+            "Coding Ratio (%)": f"{stats['coding_ratio'] * 100:.1f}%",
         }
     if output_file:
         with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(D, f, indent=4)
+            json.dump(dfast_stats, f, indent=4)
     else:
-        return D
+        return dfast_stats
 
     return None
 
@@ -169,10 +177,10 @@ def json2stats_for_dfast_main() -> None:
     json2stats_for_dfast のコマンドラインインターフェース
     """
     # 引数のパース
-    parser = argparse.ArgumentParser(description='Create statistics from JSON file for DFAST')
-    parser.add_argument('json_file', type=str, help='JSON file')
-    parser.add_argument('-f', '--format', action='store_true', help='When specified, format the output into strings')
-    parser.add_argument('-o', '--output', type=str, help='Output file')
+    parser = argparse.ArgumentParser(description="Create statistics from JSON file for DFAST")
+    parser.add_argument("json_file", type=str, help="JSON file")
+    parser.add_argument("-f", "--format", action="store_true", help="When specified, format the output into strings")
+    parser.add_argument("-o", "--output", type=str, help="Output file")
 
     # 引数のパース
     if len(sys.argv) == 1:

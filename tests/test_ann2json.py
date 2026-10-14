@@ -2,7 +2,7 @@ import json
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pytest
 from ddbj_record.schema.v1 import Common, CommonMeta, CommonSource
@@ -11,16 +11,24 @@ from ddbj_record.schema.v3 import DdbjRecord as V3DdbjRecord
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from dr_tools.ann2json import (ann2json_for_dfast, build_submitters,
-                               common_source_qualifiers, common_to_dict,
-                               find_contact_index, get_hold_date,
-                               infer_completeness, infer_entry_type,
-                               infer_meta_from_ann, make_entry_dict,
-                               mss_to_record_v3, source_to_dict)
+from dr_tools.ann2json import (
+    ann2json_for_dfast,
+    build_submitters,
+    common_source_qualifiers,
+    common_to_dict,
+    find_contact_index,
+    get_hold_date,
+    infer_completeness,
+    infer_entry_type,
+    infer_meta_from_ann,
+    make_entry_dict,
+    mss_to_record_v3,
+    source_to_dict,
+)
 from dr_tools.json2ann import json2ann
 from dr_tools.MSS import MSS, Entry, Feature, Sequence
 
-Qualifiers = Dict[str, List[str | bool]]
+Qualifiers = dict[str, list[str | bool]]
 
 
 def test_common_to_dict_complete(mss_complete: MSS) -> None:
@@ -53,6 +61,40 @@ def test_source_to_dict_vrl(mss_vrl: MSS) -> None:
     CommonSource.model_validate(source_obj)
 
 
+def test_source_to_dict_common_note_becomes_list_and_other_qualifiers_stay_strings() -> None:
+    # set の並びによらず、note だけが list になり、organism などは文字列のままであること
+    shared: Qualifiers = {
+        "organism": ["Escherichia coli"],
+        "mol_type": ["genomic DNA"],
+        "strain": ["K-12"],
+        "note": ["note 1", "note 2"],
+    }
+    mss = _mss_with_sources(dict(shared), dict(shared))
+    common_source = source_to_dict(mss)["COMMON_SOURCE"]
+    assert common_source == {
+        "organism": "Escherichia coli",
+        "mol_type": "genomic DNA",
+        "strain": "K-12",
+        "note": ["note 1", "note 2"],
+    }
+    CommonSource.model_validate(common_source)
+
+
+def test_ann2json_for_dfast_v1_common_note_is_written_as_list(eg_complete: dict[str, Path], tmp_path: Path) -> None:
+    lines = []
+    for line in eg_complete["ann"].read_text(encoding="utf-8").splitlines():
+        lines.append(line)
+        if line.split("\t")[1] == "source":
+            lines.append("\t\t\tnote\tcommon note")
+    ann_file = tmp_path.joinpath("with_note.ann")
+    ann_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    out_json_file = tmp_path.joinpath("out.json")
+    ann2json_for_dfast(ann_file, eg_complete["seq"], out_json_file, record_version="v1")
+    common_source = json.loads(out_json_file.read_text(encoding="utf-8"))["COMMON_SOURCE"]
+    assert common_source["organism"] == "Paucilactobacillus hokkaidonensis"
+    assert common_source["note"] == ["common note"]
+
+
 def test_infer_meta_from_ann_complete(mss_complete: MSS) -> None:
     common_meta, _seq_info = infer_meta_from_ann(mss_complete)
     assert "COMMON_META" in common_meta
@@ -61,7 +103,7 @@ def test_infer_meta_from_ann_complete(mss_complete: MSS) -> None:
     CommonMeta.model_validate(common_meta_obj)
 
 
-def test_ann2json_for_dfast_complete(eg_complete: Dict[str, Path]) -> None:
+def test_ann2json_for_dfast_complete(eg_complete: dict[str, Path]) -> None:
     for record_version in ("v1", "v2", "v3"):
         ann2json_for_dfast(
             ann_file=eg_complete["ann"],
@@ -71,7 +113,7 @@ def test_ann2json_for_dfast_complete(eg_complete: Dict[str, Path]) -> None:
         )
 
 
-def test_ann2json_for_dfast_vrl(eg_vrl: Dict[str, Path]) -> None:
+def test_ann2json_for_dfast_vrl(eg_vrl: dict[str, Path]) -> None:
     for record_version in ("v1", "v2", "v3"):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # VRL の contact はどの ab_name にも当たらない
@@ -83,7 +125,7 @@ def test_ann2json_for_dfast_vrl(eg_vrl: Dict[str, Path]) -> None:
             )
 
 
-def test_ann2_json_with_entry_comment(eg_complete: Dict[str, Path]) -> None:
+def test_ann2_json_with_entry_comment(eg_complete: dict[str, Path]) -> None:
     ann_file = eg_complete["ann"].parent.joinpath("complete_genome_with_comment.ann")
     seq_file = eg_complete["seq"]
 
@@ -144,7 +186,7 @@ def _wgs_mss_with_ff_definition(ff_definition: str) -> MSS:
 
 
 def test_infer_meta_from_ann_wgs_entry_with_topology_feature_sets_seq_topology_circular(
-    wgs_mss_files: Tuple[Path, Path],
+    wgs_mss_files: tuple[Path, Path],
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     mss = MSS.parse(ann_file, seq_file)
@@ -153,7 +195,7 @@ def test_infer_meta_from_ann_wgs_entry_with_topology_feature_sets_seq_topology_c
 
 
 def test_infer_meta_from_ann_wgs_entry_without_topology_feature_sets_seq_topology_linear(
-    wgs_mss_files: Tuple[Path, Path],
+    wgs_mss_files: tuple[Path, Path],
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     mss = MSS.parse(ann_file, seq_file)
@@ -178,7 +220,9 @@ def test_infer_meta_from_ann_gnm_ff_definition_plasmid_keyword_sets_seq_type_pla
     assert seq_info["pPLH-1"]["seq_type"] == "plasmid"
 
 
-def test_infer_meta_from_ann_gnm_ff_definition_complete_genome_keyword_sets_seq_type_chromosome(mss_complete: MSS) -> None:
+def test_infer_meta_from_ann_gnm_ff_definition_complete_genome_keyword_sets_seq_type_chromosome(
+    mss_complete: MSS,
+) -> None:
     _common_meta, seq_info = infer_meta_from_ann(mss_complete)
     assert seq_info["chromosome"]["seq_type"] == "chromosome"
 
@@ -196,7 +240,8 @@ def test_make_entry_dict_excludes_common_entry_from_output(mss_complete: MSS) ->
 
 
 def test_ann2json_json2ann_roundtrip_wgs_topology_line_count_matches_circular_entries(
-    wgs_mss_files: Tuple[Path, Path], tmp_path: Path,
+    wgs_mss_files: tuple[Path, Path],
+    tmp_path: Path,
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     json_file = tmp_path.joinpath("wgs.json")
@@ -210,7 +255,8 @@ def test_ann2json_json2ann_roundtrip_wgs_topology_line_count_matches_circular_en
 
 
 def test_ann2json_json2ann_roundtrip_wgs_locus_tag_lines_preserved(
-    wgs_mss_files: Tuple[Path, Path], tmp_path: Path,
+    wgs_mss_files: tuple[Path, Path],
+    tmp_path: Path,
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     json_file = tmp_path.joinpath("wgs.json")
@@ -223,7 +269,8 @@ def test_ann2json_json2ann_roundtrip_wgs_locus_tag_lines_preserved(
 
 
 def test_ann2json_json2ann_roundtrip_wgs_value_line_count_not_decreased(
-    wgs_mss_files: Tuple[Path, Path], tmp_path: Path,
+    wgs_mss_files: tuple[Path, Path],
+    tmp_path: Path,
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     json_file = tmp_path.joinpath("wgs.json")
@@ -236,7 +283,8 @@ def test_ann2json_json2ann_roundtrip_wgs_value_line_count_not_decreased(
 
 
 def test_ann2json_json2ann_roundtrip_vrl_empty_qualifier_value_line_dropped(
-    eg_vrl: Dict[str, Path], tmp_path: Path,
+    eg_vrl: dict[str, Path],
+    tmp_path: Path,
 ) -> None:
     json_file = tmp_path.joinpath("vrl.json")
     with warnings.catch_warnings():
@@ -250,7 +298,8 @@ def test_ann2json_json2ann_roundtrip_vrl_empty_qualifier_value_line_dropped(
 
 
 def test_ann2json_json2ann_roundtrip_vrl_value_line_count_not_decreased(
-    eg_vrl: Dict[str, Path], tmp_path: Path,
+    eg_vrl: dict[str, Path],
+    tmp_path: Path,
 ) -> None:
     json_file = tmp_path.joinpath("vrl.json")
     with warnings.catch_warnings():
@@ -266,17 +315,17 @@ def test_ann2json_json2ann_roundtrip_vrl_value_line_count_not_decreased(
 # === record v3 ===
 
 
-def _ann2json_v3(ann_file: Path, seq_file: Path, tmp_path: Path, division: Optional[str] = None) -> Dict[str, Any]:
+def _ann2json_v3(ann_file: Path, seq_file: Path, tmp_path: Path, division: str | None = None) -> dict[str, Any]:
     """ann / seq を v3 の JSON にして dict で返す"""
     json_file = tmp_path.joinpath("record.v3.json")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ann2json_for_dfast(ann_file, seq_file, json_file, division=division, record_version="v3")
-    data: Dict[str, Any] = json.loads(json_file.read_text(encoding="utf-8"))
+    data: dict[str, Any] = json.loads(json_file.read_text(encoding="utf-8"))
     return data
 
 
-def _mss_signature(mss: MSS) -> List[Tuple[str, List[Tuple[str, str, Tuple[Tuple[str, Tuple[str | bool, ...]], ...]]]]]:
+def _mss_signature(mss: MSS) -> list[tuple[str, list[tuple[str, str, tuple[tuple[str, tuple[str | bool, ...]], ...]]]]]:
     """
     MSS を、qualifier の並びに依らずに比べられる形にする
     entry ごとに (name, [(feature type, location, qualifier の (名前, 値の組) を名前順に並べたもの)])
@@ -287,11 +336,13 @@ def _mss_signature(mss: MSS) -> List[Tuple[str, List[Tuple[str, str, Tuple[Tuple
     for entry in mss.entries:
         features = []
         for feature in entry.features:
-            qualifiers = tuple(sorted(
-                (key, tuple(value for value in values if value != ""))
-                for key, values in feature.qualifiers.items()
-                if any(value != "" for value in values)
-            ))
+            qualifiers = tuple(
+                sorted(
+                    (key, tuple(value for value in values if value != ""))
+                    for key, values in feature.qualifiers.items()
+                    if any(value != "" for value in values)
+                )
+            )
             features.append((feature.type, feature.location, qualifiers))
         if entry.id == "COMMON":
             features.sort()
@@ -299,7 +350,7 @@ def _mss_signature(mss: MSS) -> List[Tuple[str, List[Tuple[str, str, Tuple[Tuple
     return signature
 
 
-def _comparable_with_trad_gnm_fixture(record: Dict[str, Any], feature_aliases: set[str]) -> Dict[str, Any]:
+def _comparable_with_trad_gnm_fixture(record: dict[str, Any], feature_aliases: set[str]) -> dict[str, Any]:
     """
     record の tests/fixtures/v3/records/trad_gnm.json と比べられる形にする。fixture は手で整えたものなので、次を外す
     - provenance.source_format (fixture は "DFAST"、ann2json は "MSS") と dfast_version (fixture に無い)
@@ -309,7 +360,7 @@ def _comparable_with_trad_gnm_fixture(record: Dict[str, Any], feature_aliases: s
     - entry の source_features[].source (fixture は /plasmid を落とした v2 経路で作られている)
     - features は fixture が 4 件に絞ってあるので、fixture にある alias のものだけ
     """
-    data: Dict[str, Any] = json.loads(json.dumps(record))
+    data: dict[str, Any] = json.loads(json.dumps(record))
     data["provenance"].pop("source_format", None)
     data["provenance"].pop("dfast_version", None)
     data.pop("assembly", None)
@@ -322,20 +373,28 @@ def _comparable_with_trad_gnm_fixture(record: Dict[str, Any], feature_aliases: s
         entry.pop("completeness", None)
         for source_feature in entry.get("source_features", []):
             source_feature.pop("source", None)
-    data["features"] = {feature["alias"]: feature for feature in data["features"] if feature["alias"] in feature_aliases}
+    data["features"] = {
+        feature["alias"]: feature for feature in data["features"] if feature["alias"] in feature_aliases
+    }
     return data
 
 
 def test_ann2json_v3_complete_genome_matches_record_fixture_trad_gnm(
-    eg_complete: Dict[str, Path], trad_gnm_v3_json: Path, tmp_path: Path,
+    eg_complete: dict[str, Path],
+    trad_gnm_v3_json: Path,
+    tmp_path: Path,
 ) -> None:
     actual = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
-    expected: Dict[str, Any] = json.loads(trad_gnm_v3_json.read_text(encoding="utf-8"))
+    expected: dict[str, Any] = json.loads(trad_gnm_v3_json.read_text(encoding="utf-8"))
     feature_aliases = {feature["alias"] for feature in expected["features"]}
-    assert _comparable_with_trad_gnm_fixture(actual, feature_aliases) == _comparable_with_trad_gnm_fixture(expected, feature_aliases)
+    assert _comparable_with_trad_gnm_fixture(actual, feature_aliases) == _comparable_with_trad_gnm_fixture(
+        expected, feature_aliases
+    )
 
 
-def test_ann2json_v3_output_is_valid_v3_record_with_source_format_mss(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_output_is_valid_v3_record_with_source_format_mss(
+    eg_complete: dict[str, Path], tmp_path: Path
+) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     record = V3DdbjRecord.model_validate(data)
     assert record.schema_version == "v3"
@@ -346,7 +405,8 @@ def test_ann2json_v3_output_is_valid_v3_record_with_source_format_mss(eg_complet
 
 
 def test_ann2json_v3_plasmid_qualifier_stays_in_entry_source_and_common_qualifiers_do_not(
-    eg_complete: Dict[str, Path], tmp_path: Path,
+    eg_complete: dict[str, Path],
+    tmp_path: Path,
 ) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     entries = {entry["alias"]: entry for entry in data["sequences"]["entries"]}
@@ -356,7 +416,9 @@ def test_ann2json_v3_plasmid_qualifier_stays_in_entry_source_and_common_qualifie
     assert "strain" in data["sequences"]["common_source"]["qualifiers"]
 
 
-def test_ann2json_v3_complete_genome_entry_type_completeness_and_division(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_complete_genome_entry_type_completeness_and_division(
+    eg_complete: dict[str, Path], tmp_path: Path
+) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     assert [(e["alias"], e["type"], e["completeness"], e["division"]) for e in data["sequences"]["entries"]] == [
         ("chromosome", "chromosome", "complete", "BCT"),
@@ -365,18 +427,20 @@ def test_ann2json_v3_complete_genome_entry_type_completeness_and_division(eg_com
     ]
 
 
-def test_ann2json_v3_explicit_division_overrides_default(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_explicit_division_overrides_default(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path, division="ENV")
     assert {entry["division"] for entry in data["sequences"]["entries"]} == {"ENV"}
 
 
-def test_ann2json_v3_without_dfast_comment_division_defaults_to_unk(eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_without_dfast_comment_division_defaults_to_unk(eg_vrl: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_vrl["ann"], eg_vrl["seq"], tmp_path)
     assert data["sequences"]["entries"][0]["division"] == "UNK"
     assert "dfast_version" not in data["provenance"]
 
 
-def test_ann2json_v3_vrl_value_less_qualifier_has_no_value_and_empty_value_is_kept(eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_vrl_value_less_qualifier_has_no_value_and_empty_value_is_kept(
+    eg_vrl: dict[str, Path], tmp_path: Path
+) -> None:
     data = _ann2json_v3(eg_vrl["ann"], eg_vrl["seq"], tmp_path, division="VRL")
     assert data["sequences"]["common_source"]["mol_type"] == "genomic RNA"
     assert data["sequences"]["common_source"]["qualifiers"]["geo_loc_name"] == [{"value": ""}]
@@ -386,7 +450,9 @@ def test_ann2json_v3_vrl_value_less_qualifier_has_no_value_and_empty_value_is_ke
     assert data["sequences"]["entries"][0]["type"] == "segment"
 
 
-def test_ann2json_v3_vrl_without_division_argument_entry_type_is_chromosome(eg_vrl: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_vrl_without_division_argument_entry_type_is_chromosome(
+    eg_vrl: dict[str, Path], tmp_path: Path
+) -> None:
     # division を省くと UNK になり、VRL の決まり (segment) は効かない
     data = _ann2json_v3(eg_vrl["ann"], eg_vrl["seq"], tmp_path)
     assert data["sequences"]["entries"][0]["division"] == "UNK"
@@ -394,7 +460,8 @@ def test_ann2json_v3_vrl_without_division_argument_entry_type_is_chromosome(eg_v
 
 
 def test_ann2json_v3_wgs_category_seq_prefix_keywords_and_unplaced_entries(
-    wgs_mss_files: Tuple[Path, Path], tmp_path: Path,
+    wgs_mss_files: tuple[Path, Path],
+    tmp_path: Path,
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     data = _ann2json_v3(ann_file, seq_file, tmp_path)
@@ -402,7 +469,8 @@ def test_ann2json_v3_wgs_category_seq_prefix_keywords_and_unplaced_entries(
     assert data["sequences"]["seq_prefix"] == "contig"
     assert data["sequences"]["keywords"] == ["WGS"]
     assert [(e["alias"], e["type"], e["topology"]) for e in data["sequences"]["entries"]] == [
-        ("contig01", "unplaced", "circular"), ("contig02", "unplaced", "linear"),
+        ("contig01", "unplaced", "circular"),
+        ("contig02", "unplaced", "linear"),
     ]
     assert "completeness" not in data["sequences"]["entries"][0]
     assert data["projects"][0]["locus_tag_prefix"] == [{"prefix": "TEST"}]
@@ -410,12 +478,15 @@ def test_ann2json_v3_wgs_category_seq_prefix_keywords_and_unplaced_entries(
 
 
 def test_ann2json_v3_submitters_contact_first_with_organization_and_others_with_abbreviation_only(
-    eg_complete: Dict[str, Path], tmp_path: Path,
+    eg_complete: dict[str, Path],
+    tmp_path: Path,
 ) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     submitters = data["submission"]["submitters"]
     assert [(p.get("abbreviation"), p["role"]) for p in submitters] == [
-        ("Mishima,H.", "contact"), ("Tanizawa,Y.", "submitter"), ("Nakamura,Y.", "submitter"),
+        ("Mishima,H.", "contact"),
+        ("Tanizawa,Y.", "submitter"),
+        ("Nakamura,Y.", "submitter"),
     ]
     assert submitters[0]["name"] == "Hanako Mishima"
     assert submitters[0]["organizations"][0]["type"] == "institution"
@@ -423,14 +494,14 @@ def test_ann2json_v3_submitters_contact_first_with_organization_and_others_with_
     assert "organizations" not in submitters[1]
 
 
-def test_ann2json_v3_hold_date_and_publication_date(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_hold_date_and_publication_date(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     assert data["submission"]["hold_date"] == "2025-03-31"
     assert data["projects"][0]["publications"][0]["date"] == "2023"
     assert data["projects"][0]["publications"][0]["status"] == "unpublished"
 
 
-def test_ann2json_v3_entry_comment_is_kept_in_entry_comments(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_v3_entry_comment_is_kept_in_entry_comments(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     ann_file = eg_complete["ann"].parent.joinpath("complete_genome_with_comment.ann")
     data = _ann2json_v3(ann_file, eg_complete["seq"], tmp_path)
     assert data["sequences"]["entries"][0]["comments"] == ["comment at entry for test"]
@@ -440,7 +511,9 @@ def test_ann2json_v3_entry_comment_is_kept_in_entry_comments(eg_complete: Dict[s
 # --- ann -> v3 -> ann の往復 ---
 
 
-def test_ann2json_json2ann_roundtrip_v3_complete_genome_keeps_plasmid_line(eg_complete: Dict[str, Path], tmp_path: Path) -> None:
+def test_ann2json_json2ann_roundtrip_v3_complete_genome_keeps_plasmid_line(
+    eg_complete: dict[str, Path], tmp_path: Path
+) -> None:
     json_file = tmp_path.joinpath("v3.json")
     ann2json_for_dfast(eg_complete["ann"], eg_complete["seq"], json_file, record_version="v3")
     json2ann(json_file, out_dir=tmp_path, out_prefix="roundtrip")
@@ -452,7 +525,10 @@ def test_ann2json_json2ann_roundtrip_v3_complete_genome_keeps_plasmid_line(eg_co
 
 @pytest.mark.parametrize("example", ["complete", "vrl"])
 def test_ann2json_json2ann_roundtrip_v3_keeps_all_entries_features_and_qualifiers(
-    example: str, eg_complete: Dict[str, Path], eg_vrl: Dict[str, Path], tmp_path: Path,
+    example: str,
+    eg_complete: dict[str, Path],
+    eg_vrl: dict[str, Path],
+    tmp_path: Path,
 ) -> None:
     files = eg_complete if example == "complete" else eg_vrl
     json_file = tmp_path.joinpath("v3.json")
@@ -468,7 +544,8 @@ def test_ann2json_json2ann_roundtrip_v3_keeps_all_entries_features_and_qualifier
 
 
 def test_ann2json_json2ann_roundtrip_v3_wgs_keeps_datatype_keyword_and_topology(
-    wgs_mss_files: Tuple[Path, Path], tmp_path: Path,
+    wgs_mss_files: tuple[Path, Path],
+    tmp_path: Path,
 ) -> None:
     ann_file, seq_file = wgs_mss_files
     json_file = tmp_path.joinpath("v3.json")
@@ -479,39 +556,46 @@ def test_ann2json_json2ann_roundtrip_v3_wgs_keeps_datatype_keyword_and_topology(
     assert _mss_signature(roundtrip) == _mss_signature(MSS.parse(ann_file, seq_file))
 
 
-def test_json2ann_v1_v2_v3_of_same_ann_write_same_ann_and_fasta(full_record: Dict[str, Path], tmp_path: Path) -> None:
+def test_json2ann_v1_v2_v3_of_same_ann_write_same_ann_and_fasta(full_record: dict[str, Path], tmp_path: Path) -> None:
     outputs = []
     for version in ("v1", "v2", "v3"):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             json2ann(full_record[version], out_dir=tmp_path, out_prefix=version)
-        outputs.append((tmp_path.joinpath(f"{version}.ann").read_text(encoding="utf-8"),
-                        tmp_path.joinpath(f"{version}.fasta").read_text(encoding="utf-8")))
+        outputs.append(
+            (
+                tmp_path.joinpath(f"{version}.ann").read_text(encoding="utf-8"),
+                tmp_path.joinpath(f"{version}.fasta").read_text(encoding="utf-8"),
+            )
+        )
     assert outputs[0] == outputs[1] == outputs[2]
 
 
 # --- infer_entry_type ---
 
 
-@pytest.mark.parametrize("qualifiers, category, division, expected", [
-    ({"plasmid": ["pX"]}, "GNM", "BCT", "plasmid"),
-    ({"chromosome": ["1"]}, "GNM", "BCT", "chromosome"),
-    ({"organelle": ["mitochondrion"]}, "GNM", "BCT", "organelle"),
-    ({"segment": ["4"]}, "GNM", "VRL", "segment"),
-    ({"plasmid": ["pX"], "chromosome": ["1"]}, "GNM", "BCT", "plasmid"),
-    ({"organelle": ["plastid"], "segment": ["1"]}, "WGS", "BCT", "organelle"),
-    ({"submitter_seqid": ["contig01"]}, "WGS", "BCT", "unplaced"),
-    ({}, "WGS", "BCT", "unplaced"),
-    ({}, "WGS", "VRL", "unplaced"),
-    ({}, "GNM", "BCT", "chromosome"),
-    ({}, "GNM", "UNK", "chromosome"),
-    ({}, "GNM", None, "chromosome"),
-    ({}, "GNM", "VRL", "segment"),
-    ({"isolate": ["x"]}, "GNM", "VRL", "segment"),
-    ({"plasmid": ["pX"]}, "GNM", "VRL", "plasmid"),
-    ({"plasmid": ["pX"]}, "WGS", "BCT", "plasmid"),
-])
-def test_infer_entry_type(qualifiers: Dict[str, List[str]], category: str, division: str | None, expected: str) -> None:
+@pytest.mark.parametrize(
+    ("qualifiers", "category", "division", "expected"),
+    [
+        ({"plasmid": ["pX"]}, "GNM", "BCT", "plasmid"),
+        ({"chromosome": ["1"]}, "GNM", "BCT", "chromosome"),
+        ({"organelle": ["mitochondrion"]}, "GNM", "BCT", "organelle"),
+        ({"segment": ["4"]}, "GNM", "VRL", "segment"),
+        ({"plasmid": ["pX"], "chromosome": ["1"]}, "GNM", "BCT", "plasmid"),
+        ({"organelle": ["plastid"], "segment": ["1"]}, "WGS", "BCT", "organelle"),
+        ({"submitter_seqid": ["contig01"]}, "WGS", "BCT", "unplaced"),
+        ({}, "WGS", "BCT", "unplaced"),
+        ({}, "WGS", "VRL", "unplaced"),
+        ({}, "GNM", "BCT", "chromosome"),
+        ({}, "GNM", "UNK", "chromosome"),
+        ({}, "GNM", None, "chromosome"),
+        ({}, "GNM", "VRL", "segment"),
+        ({"isolate": ["x"]}, "GNM", "VRL", "segment"),
+        ({"plasmid": ["pX"]}, "GNM", "VRL", "plasmid"),
+        ({"plasmid": ["pX"]}, "WGS", "BCT", "plasmid"),
+    ],
+)
+def test_infer_entry_type(qualifiers: dict[str, list[str]], category: str, division: str | None, expected: str) -> None:
     assert infer_entry_type(qualifiers, category, division) == expected
 
 
@@ -522,19 +606,22 @@ def test_infer_entry_type_division_defaults_to_none() -> None:
 # --- infer_completeness ---
 
 
-@pytest.mark.parametrize("ff_definition, expected", [
-    ("@@[organism]@@ @@[strain]@@ DNA, complete genome", "complete"),
-    ("@@[organism]@@ plasmid @@[plasmid]@@ DNA, complete sequence", "complete"),
-    ("@@[organism]@@ DNA, nearly complete genome", "nearly complete"),
-    ("@@[organism]@@ DNA, partial genome", "partial"),
-    ("@@[organism]@@ DNA, partial sequence", "partial"),
-    ("@@[organism]@@ DNA, draft genome", "partial"),
-    ("@@[organism]@@ DNA, draft sequence", "partial"),
-    ("@@[organism]@@ DNA, @@[submitter_seqid]@@", None),
-    ("Escherichia coli DNA, Complete Genome", "complete"),
-    ("", None),
-    (None, None),
-])
+@pytest.mark.parametrize(
+    ("ff_definition", "expected"),
+    [
+        ("@@[organism]@@ @@[strain]@@ DNA, complete genome", "complete"),
+        ("@@[organism]@@ plasmid @@[plasmid]@@ DNA, complete sequence", "complete"),
+        ("@@[organism]@@ DNA, nearly complete genome", "nearly complete"),
+        ("@@[organism]@@ DNA, partial genome", "partial"),
+        ("@@[organism]@@ DNA, partial sequence", "partial"),
+        ("@@[organism]@@ DNA, draft genome", "partial"),
+        ("@@[organism]@@ DNA, draft sequence", "partial"),
+        ("@@[organism]@@ DNA, @@[submitter_seqid]@@", None),
+        ("Escherichia coli DNA, Complete Genome", "complete"),
+        ("", None),
+        (None, None),
+    ],
+)
 def test_infer_completeness(ff_definition: str | None, expected: str | None) -> None:
     assert infer_completeness(ff_definition) == expected
 
@@ -548,17 +635,25 @@ def test_infer_completeness_pbt_returns_known_value_or_none(text: str) -> None:
 
 
 def _common_entry_with_submitter(qualifiers: Qualifiers) -> Entry:
-    return Entry(id="COMMON", name="COMMON", features=[Feature(type="SUBMITTER", id="feature_1", qualifiers=qualifiers)])
+    return Entry(
+        id="COMMON", name="COMMON", features=[Feature(type="SUBMITTER", id="feature_1", qualifiers=qualifiers)]
+    )
 
 
 def test_build_submitters_contact_matching_later_ab_name_is_moved_to_front() -> None:
-    entry = _common_entry_with_submitter({
-        "ab_name": ["Doe,A.", "Smith,J."], "contact": ["John Smith"], "email": ["smith@example.com"], "institute": ["Inst"],
-    })
+    entry = _common_entry_with_submitter(
+        {
+            "ab_name": ["Doe,A.", "Smith,J."],
+            "contact": ["John Smith"],
+            "email": ["smith@example.com"],
+            "institute": ["Inst"],
+        }
+    )
     submitters = build_submitters(entry)
     assert submitters is not None
     assert [(p.abbreviation, p.role, p.name) for p in submitters] == [
-        ("Smith,J.", "contact", "John Smith"), ("Doe,A.", "submitter", None),
+        ("Smith,J.", "contact", "John Smith"),
+        ("Doe,A.", "submitter", None),
     ]
     assert submitters[0].email == "smith@example.com"
     assert submitters[0].organizations is not None
@@ -571,7 +666,10 @@ def test_build_submitters_contact_without_matching_ab_name_adds_person_without_a
     with pytest.warns(UserWarning, match="John Smith"):
         submitters = build_submitters(entry)
     assert submitters is not None
-    assert [(p.abbreviation, p.name, p.role) for p in submitters] == [(None, "John Smith", "contact"), ("Doe,A.", None, "submitter")]
+    assert [(p.abbreviation, p.name, p.role) for p in submitters] == [
+        (None, "John Smith", "contact"),
+        ("Doe,A.", None, "submitter"),
+    ]
 
 
 def test_build_submitters_no_contact_assigns_email_to_first_ab_name() -> None:
@@ -601,45 +699,64 @@ def test_build_submitters_no_submitter_feature_returns_none() -> None:
 
 
 def test_build_submitters_consrtm_becomes_consortium_organization_after_institution() -> None:
-    entry = _common_entry_with_submitter({
-        "ab_name": ["Smith,J."], "contact": ["John Smith"], "institute": ["Inst"], "consrtm": ["Big Consortium"],
-    })
+    entry = _common_entry_with_submitter(
+        {
+            "ab_name": ["Smith,J."],
+            "contact": ["John Smith"],
+            "institute": ["Inst"],
+            "consrtm": ["Big Consortium"],
+        }
+    )
     submitters = build_submitters(entry)
-    assert submitters is not None and submitters[0].organizations is not None
-    assert [(o.name, o.type) for o in submitters[0].organizations] == [("Inst", "institution"), ("Big Consortium", "consortium")]
+    assert submitters is not None
+    assert submitters[0].organizations is not None
+    assert [(o.name, o.type) for o in submitters[0].organizations] == [
+        ("Inst", "institution"),
+        ("Big Consortium", "consortium"),
+    ]
 
 
 def test_build_submitters_address_only_institution_is_kept() -> None:
     entry = _common_entry_with_submitter({"ab_name": ["Smith,J."], "contact": ["John Smith"], "country": ["Japan"]})
     submitters = build_submitters(entry)
-    assert submitters is not None and submitters[0].organizations is not None
+    assert submitters is not None
+    assert submitters[0].organizations is not None
     assert submitters[0].organizations[0].address is not None
     assert submitters[0].organizations[0].address.country == "Japan"
     assert submitters[0].organizations[0].name is None
 
 
-@pytest.mark.parametrize("contact, ab_names, expected", [
-    ("Hanako Mishima", ["Mishima,H.", "Tanizawa,Y."], 0),
-    ("Hanako Mishima", ["Tanizawa,Y.", "Mishima,H."], 1),
-    ("Mishima, Hanako", ["Mishima,H."], 0),
-    ("Yamada Taro", ["Yamada,T."], 0),
-    ("John A. Doe", ["Doe,J.A."], 0),
-    ("John A. Doe", ["Doe,JA"], 0),
-    ("Masanori Arita", ["Fujisawa,T.", "Tanizawa,Y."], None),
-    (None, ["Mishima,H."], None),
-    ("", ["Mishima,H."], None),
-    ("Hanako Mishima", [], None),
-])
-def test_find_contact_index(contact: str | None, ab_names: List[str], expected: int | None) -> None:
+@pytest.mark.parametrize(
+    ("contact", "ab_names", "expected"),
+    [
+        ("Hanako Mishima", ["Mishima,H.", "Tanizawa,Y."], 0),
+        ("Hanako Mishima", ["Tanizawa,Y.", "Mishima,H."], 1),
+        ("Mishima, Hanako", ["Mishima,H."], 0),
+        ("Yamada Taro", ["Yamada,T."], 0),
+        ("John A. Doe", ["Doe,J.A."], 0),
+        ("John A. Doe", ["Doe,JA"], 0),
+        ("Masanori Arita", ["Fujisawa,T.", "Tanizawa,Y."], None),
+        (None, ["Mishima,H."], None),
+        ("", ["Mishima,H."], None),
+        ("Hanako Mishima", [], None),
+    ],
+)
+def test_find_contact_index(contact: str | None, ab_names: list[str], expected: int | None) -> None:
     assert find_contact_index(contact, ab_names) == expected
 
 
 # --- get_hold_date ---
 
 
-@pytest.mark.parametrize("hold_date, expected", [("20250331", "2025-03-31"), ("2025-03-31", "2025-03-31"), ("202503", "202503")])
+@pytest.mark.parametrize(
+    ("hold_date", "expected"), [("20250331", "2025-03-31"), ("2025-03-31", "2025-03-31"), ("202503", "202503")]
+)
 def test_get_hold_date(hold_date: str, expected: str) -> None:
-    entry = Entry(id="COMMON", name="COMMON", features=[Feature(type="DATE", id="feature_1", qualifiers={"hold_date": [hold_date]})])
+    entry = Entry(
+        id="COMMON",
+        name="COMMON",
+        features=[Feature(type="DATE", id="feature_1", qualifiers={"hold_date": [hold_date]})],
+    )
     assert get_hold_date(entry) == expected
 
 
@@ -655,9 +772,15 @@ def _mss_with_sources(*qualifiers: Qualifiers) -> MSS:
     sequences = []
     for i, q in enumerate(qualifiers):
         entry_id = f"entry{i + 1}"
-        entries.append(Entry(id=entry_id, name=entry_id, features=[
-            Feature(type="source", id=f"feature_{i + 1}", location="1..10", qualifiers=q),
-        ]))
+        entries.append(
+            Entry(
+                id=entry_id,
+                name=entry_id,
+                features=[
+                    Feature(type="source", id=f"feature_{i + 1}", location="1..10", qualifiers=q),
+                ],
+            )
+        )
         sequences.append(Sequence(id=entry_id, seq="acgtacgtac"))
     return MSS(ann_file=None, seq_file=None, entries=entries, sequences=sequences)
 
@@ -697,7 +820,9 @@ def test_mss_to_record_v3_entry_without_sequence_raises_value_error() -> None:
 
 def test_mss_to_record_v3_locus_tag_without_underscore_raises_value_error() -> None:
     mss = _mss_with_sources({"organism": ["E. coli"]})
-    mss.entries[1].features.append(Feature(type="CDS", id="feature_9", location="1..9", qualifiers={"locus_tag": ["ABC123"]}))
+    mss.entries[1].features.append(
+        Feature(type="CDS", id="feature_9", location="1..9", qualifiers={"locus_tag": ["ABC123"]})
+    )
     with pytest.raises(ValueError, match="ABC123"):
         mss_to_record_v3(mss)
 
@@ -728,9 +853,17 @@ _entry_name = st.from_regex(r"[A-Za-z0-9_.-]{1,8}", fullmatch=True).filter(lambd
 
 @st.composite
 def _mss_strategy(draw: st.DrawFn) -> MSS:
-    entries = [Entry(id="COMMON", name="COMMON", features=[
-        Feature(type="DATATYPE", id="feature_0", qualifiers={"type": ["WGS"]}),
-    ] if draw(st.booleans()) else [])]
+    entries = [
+        Entry(
+            id="COMMON",
+            name="COMMON",
+            features=[
+                Feature(type="DATATYPE", id="feature_0", qualifiers={"type": ["WGS"]}),
+            ]
+            if draw(st.booleans())
+            else [],
+        )
+    ]
     sequences = []
     names = draw(st.lists(_entry_name, min_size=1, max_size=3, unique=True))
     counter = 1
@@ -752,7 +885,9 @@ def _mss_strategy(draw: st.DrawFn) -> MSS:
             qualifiers: Qualifiers = draw(_feature_qualifiers)
             if draw(st.booleans()):
                 qualifiers["locus_tag"] = [f"PFX_{counter:05d}"]
-            features.append(Feature(type=feature_type, id=f"feature_{counter}", location="1..10", qualifiers=qualifiers))
+            features.append(
+                Feature(type=feature_type, id=f"feature_{counter}", location="1..10", qualifiers=qualifiers)
+            )
             counter += 1
         entries.append(Entry(id=name, name=name, features=features))
         sequences.append(Sequence(id=name, seq=draw(st.text(alphabet="acgtn", max_size=12))))
@@ -770,7 +905,7 @@ def test_mss_to_record_v3_and_back_keeps_entries_source_qualifiers_features_and_
     roundtrip = MSS.from_record(reloaded)
     assert [entry.name for entry in roundtrip.entries] == [entry.name for entry in mss.entries]
     assert [(s.id, s.seq) for s in roundtrip.sequences] == [(s.id, s.seq) for s in mss.sequences]
-    for original_entry, roundtrip_entry in zip(mss.entries[1:], roundtrip.entries[1:]):
+    for original_entry, roundtrip_entry in zip(mss.entries[1:], roundtrip.entries[1:], strict=True):
         original_features = [(f.type, f.location, f.qualifiers) for f in original_entry.features]
         roundtrip_features = [(f.type, f.location, f.qualifiers) for f in roundtrip_entry.features]
         # source と TOPOLOGY は並びが決まっている。source の qualifier は名前ごとの比較 (dict) なので並びを問わない

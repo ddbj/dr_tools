@@ -2,23 +2,34 @@ import io
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import pytest
 from Bio import SeqIO
 from Bio.Seq import Seq
-from Bio.SeqFeature import (LocationParserError, Reference, SeqFeature,
-                            SimpleLocation)
+from Bio.SeqFeature import LocationParserError, Reference, SeqFeature, SimpleLocation
 from Bio.SeqRecord import SeqRecord
-from ddbj_record.schema.v3 import (Address, Organization, Person,
-                                   Publication, Relation, RelationTarget,
-                                   StructuredComment)
+from ddbj_record.schema.v3 import (
+    Address,
+    Organization,
+    Person,
+    Publication,
+    Relation,
+    RelationTarget,
+    StructuredComment,
+)
 
-from dr_tools.json2biopython import (add_comment, add_dbxrefs,
-                                     add_translate_qualifier,
-                                     create_definition, create_reference,
-                                     create_seqfeature, create_submitter,
-                                     json_to_seqrecords, set_date)
+from dr_tools.json2biopython import (
+    add_comment,
+    add_dbxrefs,
+    add_translate_qualifier,
+    create_definition,
+    create_reference,
+    create_seqfeature,
+    create_submitter,
+    json_to_seqrecords,
+    set_date,
+)
 
 # --- JSON builders (直接 ddbj_record v1 スキーマを満たす最小 JSON を組み立てる) ---
 # v1 の JSON は v1 -> v2 -> v3 と変換してから読むので、v1 の形のまま入力にして変換の配線も確かめる。
@@ -28,9 +39,9 @@ def _build_source_feature(
     *,
     location: str = "1..12",
     ff_definition: str = "@@[organism]@@",
-    extra_qualifiers: Optional[Dict[str, List[str]]] = None,
-) -> Dict[str, Any]:
-    qualifiers: Dict[str, List[str]] = {"ff_definition": [ff_definition]}
+    extra_qualifiers: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    qualifiers: dict[str, list[str]] = {"ff_definition": [ff_definition]}
     if extra_qualifiers:
         qualifiers.update(extra_qualifiers)
     return {"id": "feature_source", "type": "source", "location": location, "qualifiers": qualifiers}
@@ -42,7 +53,7 @@ def _build_cds_feature(
     product: str = "hypothetical protein",
     transl_table: str = "11",
     codon_start: str = "1",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         "id": "feature_cds",
         "type": "CDS",
@@ -62,8 +73,8 @@ def _build_entry(
     entry_type: str = "chromosome",
     topology: str = "linear",
     sequence: str = "atgaaacgctaa",
-    features: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
+    features: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     if features is None:
         features = [_build_source_feature(location=f"1..{len(sequence)}")]
     return {
@@ -78,12 +89,12 @@ def _build_entry(
 
 def _build_record_json(
     *,
-    common: Optional[Dict[str, Any]] = None,
-    common_source: Optional[Dict[str, Any]] = None,
-    common_meta: Optional[Dict[str, Any]] = None,
-    entries: Optional[List[Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    base_common: Dict[str, Any] = {
+    common: dict[str, Any] | None = None,
+    common_source: dict[str, Any] | None = None,
+    common_meta: dict[str, Any] | None = None,
+    entries: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    base_common: dict[str, Any] = {
         "SUBMITTER": {
             "ab_name": ["Smith,J."],
             "contact": "John Smith",
@@ -99,14 +110,14 @@ def _build_record_json(
     if common:
         base_common.update(common)
 
-    base_common_source: Dict[str, Any] = {
+    base_common_source: dict[str, Any] = {
         "organism": "Escherichia coli",
         "mol_type": "genomic DNA",
     }
     if common_source:
         base_common_source.update(common_source)
 
-    base_common_meta: Dict[str, Any] = {"division": "BCT"}
+    base_common_meta: dict[str, Any] = {"division": "BCT"}
     if common_meta:
         base_common_meta.update(common_meta)
 
@@ -124,18 +135,25 @@ def _build_record_json(
 
 def _build_v3_record_json(
     *,
-    common_source: Optional[Dict[str, Any]] = None,
-    entries: Optional[List[Dict[str, Any]]] = None,
-    features: Optional[List[Dict[str, Any]]] = None,
+    common_source: dict[str, Any] | None = None,
+    entries: list[dict[str, Any]] | None = None,
+    features: list[dict[str, Any]] | None = None,
     **extra: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """v3 の最小の record。entries を省くと、source を持たない entry を 1 つ置く"""
     if common_source is None:
         common_source = {"organism": {"name": "Escherichia coli"}, "mol_type": "genomic DNA"}
     if entries is None:
-        entries = [{"alias": "entry1", "name": "entry1", "topology": "linear", "sequence": "atgaaacgctaa",
-                    "source_features": [{"location": "1..12", "definition": ["@@[organism]@@"]}]}]
-    record: Dict[str, Any] = {
+        entries = [
+            {
+                "alias": "entry1",
+                "name": "entry1",
+                "topology": "linear",
+                "sequence": "atgaaacgctaa",
+                "source_features": [{"location": "1..12", "definition": ["@@[organism]@@"]}],
+            }
+        ]
+    record: dict[str, Any] = {
         "schema_version": "v3",
         "sequences": {"common_source": common_source, "entries": entries},
     }
@@ -145,7 +163,7 @@ def _build_v3_record_json(
     return record
 
 
-def _write_record_json(tmp_path: Path, data: Dict[str, Any]) -> Path:
+def _write_record_json(tmp_path: Path, data: dict[str, Any]) -> Path:
     path = tmp_path / "record.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     return path
@@ -156,7 +174,9 @@ def _write_record_json(tmp_path: Path, data: Dict[str, Any]) -> Path:
 
 def test_add_translate_qualifier_valid_coding_sequence_sets_single_element_translation_list() -> None:
     feature = SeqFeature(  # type: ignore[no-untyped-call]
-        SimpleLocation(0, 12, strand=1), type="CDS", qualifiers={"transl_table": ["11"], "codon_start": ["1"]},  # type: ignore[no-untyped-call]
+        SimpleLocation(0, 12, strand=1),  # type: ignore[no-untyped-call]
+        type="CDS",
+        qualifiers={"transl_table": ["11"], "codon_start": ["1"]},
     )
     add_translate_qualifier(feature, Seq("atgaaacgctaa"))
     assert feature.qualifiers["translation"] == ["MKR"]
@@ -164,15 +184,61 @@ def test_add_translate_qualifier_valid_coding_sequence_sets_single_element_trans
 
 def test_add_translate_qualifier_non_nucleotide_characters_no_exception_and_no_translation_qualifier() -> None:
     feature = SeqFeature(  # type: ignore[no-untyped-call]
-        SimpleLocation(0, 12, strand=1), type="CDS", qualifiers={"transl_table": ["11"], "codon_start": ["1"]},  # type: ignore[no-untyped-call]
+        SimpleLocation(0, 12, strand=1),  # type: ignore[no-untyped-call]
+        type="CDS",
+        qualifiers={"transl_table": ["11"], "codon_start": ["1"]},
     )
     add_translate_qualifier(feature, Seq("atgaaacgc..."))
     assert "translation" not in feature.qualifiers
 
 
+@pytest.mark.parametrize(
+    "qualifiers",
+    [
+        {"transl_table": ["99"], "codon_start": ["1"]},
+        {"transl_table": ["no such table"], "codon_start": ["1"]},
+        {"transl_table": ["11"], "codon_start": ["x"]},
+    ],
+)
+def test_add_translate_qualifier_unusable_transl_table_or_codon_start_logs_warning_and_sets_no_translation(
+    qualifiers: dict[str, list[str]],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    feature = SeqFeature(  # type: ignore[no-untyped-call]
+        SimpleLocation(0, 12, strand=1),  # type: ignore[no-untyped-call]
+        type="CDS",
+        qualifiers=dict(qualifiers),
+    )
+    add_translate_qualifier(feature, Seq("atgaaacgctaa"))
+    assert "translation" not in feature.qualifiers
+    assert "Cannot translate" in caplog.text
+
+
+def test_json_to_seqrecords_cds_with_unknown_transl_table_keeps_other_features(tmp_path: Path) -> None:
+    sequence = "atgaaacgctaaatgaaacgctaa"
+    data = _build_record_json(
+        entries=[
+            _build_entry(
+                sequence=sequence,
+                features=[
+                    _build_source_feature(location=f"1..{len(sequence)}"),
+                    _build_cds_feature("1..12", transl_table="99"),
+                    _build_cds_feature("13..24"),
+                ],
+            )
+        ]
+    )
+    records = json_to_seqrecords(_write_record_json(tmp_path, data))
+    cds_features = [feature for feature in records[0].features if feature.type == "CDS"]
+    assert "translation" not in cds_features[0].qualifiers
+    assert cds_features[1].qualifiers["translation"] == ["MKR"]
+
+
 def test_add_translate_qualifier_translation_reduces_to_empty_string_does_not_set_qualifier() -> None:
     feature = SeqFeature(  # type: ignore[no-untyped-call]
-        SimpleLocation(0, 3, strand=1), type="CDS", qualifiers={"transl_table": ["11"], "codon_start": ["1"]},  # type: ignore[no-untyped-call]
+        SimpleLocation(0, 3, strand=1),  # type: ignore[no-untyped-call]
+        type="CDS",
+        qualifiers={"transl_table": ["11"], "codon_start": ["1"]},
     )
     add_translate_qualifier(feature, Seq("taa"))
     assert "translation" not in feature.qualifiers
@@ -223,8 +289,14 @@ def test_json_to_seqrecords_submitter_seqid_placeholder_uses_entry_name_even_if_
 
 
 def test_json_to_seqrecords_entry_placeholder_uses_entry_name(tmp_path: Path) -> None:
-    entries = [{"alias": "contig_001", "name": "contig_001", "sequence": "atgaaacgctaa",
-                "source_features": [{"location": "1..12", "definition": ["@@[organism]@@ DNA, @@[entry]@@"]}]}]
+    entries = [
+        {
+            "alias": "contig_001",
+            "name": "contig_001",
+            "sequence": "atgaaacgctaa",
+            "source_features": [{"location": "1..12", "definition": ["@@[organism]@@ DNA, @@[entry]@@"]}],
+        }
+    ]
     data = _build_v3_record_json(entries=entries)
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
     assert records[0].description == "Escherichia coli DNA, contig_001"
@@ -244,9 +316,20 @@ def test_json_to_seqrecords_source_qualifier_with_multiple_values_placeholder_le
 
 
 def test_json_to_seqrecords_v3_plasmid_placeholder_uses_entry_source_qualifier(tmp_path: Path) -> None:
-    entries = [{"alias": "pX", "name": "pX", "sequence": "atgaaacgctaa",
-                "source_features": [{"location": "1..12", "source": {"qualifiers": {"plasmid": [{"value": "pX1"}]}},
-                                     "definition": ["@@[organism]@@ plasmid @@[plasmid]@@ DNA"]}]}]
+    entries = [
+        {
+            "alias": "pX",
+            "name": "pX",
+            "sequence": "atgaaacgctaa",
+            "source_features": [
+                {
+                    "location": "1..12",
+                    "source": {"qualifiers": {"plasmid": [{"value": "pX1"}]}},
+                    "definition": ["@@[organism]@@ plasmid @@[plasmid]@@ DNA"],
+                }
+            ],
+        }
+    ]
     data = _build_v3_record_json(entries=entries)
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
     assert records[0].description == "Escherichia coli plasmid pX1 DNA"
@@ -278,8 +361,14 @@ def test_json_to_seqrecords_mol_type_without_dna_or_rna_raises_value_error(tmp_p
 
 
 def test_json_to_seqrecords_v3_entry_source_mol_type_overrides_common_source(tmp_path: Path) -> None:
-    entries = [{"alias": "e1", "name": "e1", "sequence": "atgaaacgctaa",
-                "source_features": [{"location": "1..12", "source": {"mol_type": "genomic RNA"}}]}]
+    entries = [
+        {
+            "alias": "e1",
+            "name": "e1",
+            "sequence": "atgaaacgctaa",
+            "source_features": [{"location": "1..12", "source": {"mol_type": "genomic RNA"}}],
+        }
+    ]
     data = _build_v3_record_json(entries=entries)
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
     assert records[0].annotations["molecule_type"] == "RNA"
@@ -336,21 +425,38 @@ def test_json_to_seqrecords_keywords_absent_does_not_set_keywords_annotation(tmp
 
 
 def test_json_to_seqrecords_v3_relations_become_dbxrefs(tmp_path: Path) -> None:
-    data = _build_v3_record_json(relations=[
-        {"type": "xref", "target": {"db": "bioproject", "id": "PRJDB1"}},
-        {"type": "xref", "target": {"db": "biosample", "id": "SAMD1"}},
-    ])
+    data = _build_v3_record_json(
+        relations=[
+            {"type": "xref", "target": {"db": "bioproject", "id": "PRJDB1"}},
+            {"type": "xref", "target": {"db": "biosample", "id": "SAMD1"}},
+        ]
+    )
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
     assert records[0].dbxrefs == ["BioProject:PRJDB1", "BioSample:SAMD1"]
 
 
 def test_json_to_seqrecords_v3_publication_journal_fields_reach_reference(tmp_path: Path) -> None:
-    data = _build_v3_record_json(projects=[{"publications": [{
-        "title": "T", "status": "published", "date": "2024-05-01", "journal": "J Test", "volume": "3",
-        "pages_from": "10", "pages_to": "12", "pubmed_id": "99999999", "authors": [{"abbreviation": "Smith,J."}],
-    }]}])
+    data = _build_v3_record_json(
+        projects=[
+            {
+                "publications": [
+                    {
+                        "title": "T",
+                        "status": "published",
+                        "date": "2024-05-01",
+                        "journal": "J Test",
+                        "volume": "3",
+                        "pages_from": "10",
+                        "pages_to": "12",
+                        "pubmed_id": "99999999",
+                        "authors": [{"abbreviation": "Smith,J."}],
+                    }
+                ]
+            }
+        ]
+    )
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
-    references = cast(List[Reference], records[0].annotations["references"])
+    references = cast(list[Reference], records[0].annotations["references"])
     assert len(references) == 1  # submitters が無いので Direct Submission は無い
     publication = references[0]
     assert publication.journal == "J Test 3:10-12, (2024)"
@@ -361,7 +467,7 @@ def test_json_to_seqrecords_v3_publication_journal_fields_reach_reference(tmp_pa
 
 
 def test_json_to_seqrecords_cds_feature_gets_translation_other_feature_types_do_not(
-    full_record: Dict[str, Path],
+    full_record: dict[str, Path],
 ) -> None:
     records = json_to_seqrecords(full_record["v3"])
     rec = records[0]
@@ -390,14 +496,14 @@ def test_json_to_seqrecords_cds_feature_gets_translation_other_feature_types_do_
 # --- json_to_seqrecords: 実データでの sanity check ---
 
 
-def test_json_to_seqrecords_real_complete_genome_v1_entries_and_description(eg_complete: Dict[str, Path]) -> None:
+def test_json_to_seqrecords_real_complete_genome_v1_entries_and_description(eg_complete: dict[str, Path]) -> None:
     records = json_to_seqrecords(eg_complete["v1_json"])
     assert [r.id for r in records] == ["chromosome", "pPLH-1", "pPLH-2"]
     assert records[0].description == "Paucilactobacillus hokkaidonensis LOOC260 DNA, complete genome"
 
 
 def test_json_to_seqrecords_real_complete_genome_v3_plasmid_description_and_source_qualifier(
-    eg_complete: Dict[str, Path],
+    eg_complete: dict[str, Path],
 ) -> None:
     records = json_to_seqrecords(eg_complete["v3_json"])
     assert [r.id for r in records] == ["chromosome", "pPLH-1", "pPLH-2"]
@@ -407,7 +513,7 @@ def test_json_to_seqrecords_real_complete_genome_v3_plasmid_description_and_sour
     assert records[1].dbxrefs == ["BioProject:PRJDB99999", "BioSample:SAMD999999", "Sequence Read Archive:DRR999990"]
 
 
-def test_json_to_seqrecords_real_vrl_v1_description_and_rna_molecule_type(eg_vrl: Dict[str, Path]) -> None:
+def test_json_to_seqrecords_real_vrl_v1_description_and_rna_molecule_type(eg_vrl: dict[str, Path]) -> None:
     records = json_to_seqrecords(eg_vrl["v1_json"])
     assert len(records) == 1
     assert records[0].description == (
@@ -416,7 +522,7 @@ def test_json_to_seqrecords_real_vrl_v1_description_and_rna_molecule_type(eg_vrl
     assert records[0].annotations["molecule_type"] == "RNA"
 
 
-def test_json_to_seqrecords_real_vrl_v3_description_division_and_rna_molecule_type(eg_vrl: Dict[str, Path]) -> None:
+def test_json_to_seqrecords_real_vrl_v3_description_division_and_rna_molecule_type(eg_vrl: dict[str, Path]) -> None:
     records = json_to_seqrecords(eg_vrl["v3_json"])
     assert len(records) == 1
     assert records[0].description == (
@@ -426,7 +532,7 @@ def test_json_to_seqrecords_real_vrl_v3_description_division_and_rna_molecule_ty
     assert records[0].annotations["data_file_division"] == "VRL"
 
 
-def test_json_to_seqrecords_same_genbank_text_from_v1_v2_v3_of_same_ann(full_record: Dict[str, Path]) -> None:
+def test_json_to_seqrecords_same_genbank_text_from_v1_v2_v3_of_same_ann(full_record: dict[str, Path]) -> None:
     outputs = []
     for version in ("v1", "v2", "v3"):
         buf = io.StringIO()
@@ -435,7 +541,7 @@ def test_json_to_seqrecords_same_genbank_text_from_v1_v2_v3_of_same_ann(full_rec
     assert outputs[0] == outputs[1] == outputs[2]
 
 
-def test_json_to_seqrecords_writes_to_genbank_format_without_error(full_record: Dict[str, Path]) -> None:
+def test_json_to_seqrecords_writes_to_genbank_format_without_error(full_record: dict[str, Path]) -> None:
     records = json_to_seqrecords(full_record["v3"])
     buf = io.StringIO()
     SeqIO.write(records, buf, "genbank")
@@ -466,7 +572,9 @@ def test_create_submitter_single_author_sets_authors_verbatim() -> None:
 
 
 def test_create_submitter_multiple_authors_joins_with_and_before_last() -> None:
-    ref = create_submitter([Person(abbreviation="Smith,J."), Person(abbreviation="Doe,A."), Person(abbreviation="Lee,K.")])
+    ref = create_submitter(
+        [Person(abbreviation="Smith,J."), Person(abbreviation="Doe,A."), Person(abbreviation="Lee,K.")]
+    )
     assert ref is not None
     assert ref.authors == "Smith,J., Doe,A. and Lee,K."
 
@@ -480,15 +588,23 @@ def test_create_submitter_consortium_only_without_abbreviation_returns_reference
 
 def test_create_submitter_journal_has_contact_affiliation_address_and_url() -> None:
     contact = Person(
-        name="John Smith", abbreviation="Smith,J.",
-        organizations=[_institution(
-            name="Example Institute", department="Dept", url="https://example.com",
-            address=Address(country="Japan", state="Tokyo", city="Bunkyo", street="1-1-1", postal_code="100-0001"),
-        )],
+        name="John Smith",
+        abbreviation="Smith,J.",
+        organizations=[
+            _institution(
+                name="Example Institute",
+                department="Dept",
+                url="https://example.com",
+                address=Address(country="Japan", state="Tokyo", city="Bunkyo", street="1-1-1", postal_code="100-0001"),
+            )
+        ],
     )
     ref = create_submitter([contact])
     assert ref is not None
-    assert ref.journal == "Contact:John Smith, Example Institute, Dept;, 1-1-1, Bunkyo, Tokyo 100-0001, Japan URL:https://example.com"
+    assert (
+        ref.journal
+        == "Contact:John Smith, Example Institute, Dept;, 1-1-1, Bunkyo, Tokyo 100-0001, Japan URL:https://example.com"
+    )
 
 
 def test_create_submitter_missing_affiliation_uses_placeholders() -> None:
@@ -505,26 +621,44 @@ def test_create_reference_no_title_returns_none() -> None:
 
 
 def test_create_reference_status_published_formats_journal_with_volume_and_page_range() -> None:
-    ref = create_reference(Publication(
-        title="T", status="published", journal="J Test", volume="10", pages_from="1", pages_to="5", date="2020",
-        authors=[Person(abbreviation="Smith,J.")],
-    ))
+    ref = create_reference(
+        Publication(
+            title="T",
+            status="published",
+            journal="J Test",
+            volume="10",
+            pages_from="1",
+            pages_to="5",
+            date="2020",
+            authors=[Person(abbreviation="Smith,J.")],
+        )
+    )
     assert ref is not None
     assert ref.journal == "J Test 10:1-5, (2020)"
 
 
 def test_create_reference_status_published_without_pages_to_uses_pages_from_only() -> None:
-    ref = create_reference(Publication(
-        title="T", status="published", journal="J Test", volume="10", pages_from="42", date="2020",
-        authors=[Person(abbreviation="Smith,J.")],
-    ))
+    ref = create_reference(
+        Publication(
+            title="T",
+            status="published",
+            journal="J Test",
+            volume="10",
+            pages_from="42",
+            date="2020",
+            authors=[Person(abbreviation="Smith,J.")],
+        )
+    )
     assert ref is not None
     assert ref.journal == "J Test 10:42, (2020)"
 
 
 def test_create_reference_status_in_press_formats_journal_with_in_press() -> None:
-    ref = create_reference(Publication(title="T", status="in-press", journal="J Test", date="2021",
-                                       authors=[Person(abbreviation="Smith,J.")]))
+    ref = create_reference(
+        Publication(
+            title="T", status="in-press", journal="J Test", date="2021", authors=[Person(abbreviation="Smith,J.")]
+        )
+    )
     assert ref is not None
     assert ref.journal == "J Test (In press, 2021)"
 
@@ -560,8 +694,12 @@ def test_create_reference_single_author_authors_set_verbatim() -> None:
 
 
 def test_create_reference_multiple_authors_joined_with_and_before_last() -> None:
-    ref = create_reference(Publication(title="T", authors=[Person(abbreviation="Smith,J."), Person(abbreviation="Doe,A."),
-                                                           Person(abbreviation="Lee,K.")]))
+    ref = create_reference(
+        Publication(
+            title="T",
+            authors=[Person(abbreviation="Smith,J."), Person(abbreviation="Doe,A."), Person(abbreviation="Lee,K.")],
+        )
+    )
     assert ref is not None
     assert ref.authors == "Smith,J., Doe,A. and Lee,K."
 
@@ -602,7 +740,7 @@ def test_create_definition_no_placeholders_returns_text_unchanged() -> None:
 
 
 def test_create_seqfeature_boolean_qualifier_value_converted_to_empty_string() -> None:
-    qualifiers = cast(Dict[str, List[str | bool]], {"pseudo": [True]})
+    qualifiers = cast(dict[str, list[str | bool]], {"pseudo": [True]})
     feature = create_seqfeature("gene", "1..5", qualifiers, 5, "linear")
     assert feature.qualifiers["pseudo"] == [""]
 
@@ -668,7 +806,10 @@ def test_add_dbxrefs_no_relations_results_in_empty_list() -> None:
 
 def test_add_dbxrefs_unknown_db_and_non_xref_relations_are_ignored() -> None:
     record = _new_record()
-    add_dbxrefs(record, [_xref("assembly", "GCA_1"), Relation(type="part_of", target=RelationTarget(db="bioproject", id="PRJDB1"))])
+    add_dbxrefs(
+        record,
+        [_xref("assembly", "GCA_1"), Relation(type="part_of", target=RelationTarget(db="bioproject", id="PRJDB1"))],
+    )
     assert record.dbxrefs == []
 
 
@@ -689,9 +830,16 @@ def test_add_comment_no_comments_sets_empty_string() -> None:
 
 def test_add_comment_structured_comment_with_tagset_id_sets_structured_comment() -> None:
     record = _new_record()
-    add_comment(record, None, [StructuredComment(
-        tagset_id="Genome-Assembly-Data", fields={"Assembly Method": "HGAP", "Genome Coverage": "60x"},
-    )])
+    add_comment(
+        record,
+        None,
+        [
+            StructuredComment(
+                tagset_id="Genome-Assembly-Data",
+                fields={"Assembly Method": "HGAP", "Genome Coverage": "60x"},
+            )
+        ],
+    )
     assert record.annotations["structured_comment"] == {  # type: ignore[comparison-overlap]
         "Genome-Assembly-Data": {"Assembly Method": "HGAP", "Genome Coverage": "60x"}
     }
@@ -699,8 +847,11 @@ def test_add_comment_structured_comment_with_tagset_id_sets_structured_comment()
 
 def test_add_comment_multiple_structured_comments_keyed_by_tagset_id() -> None:
     record = _new_record()
-    add_comment(record, None, [StructuredComment(tagset_id="A", fields={"x": "1"}),
-                               StructuredComment(tagset_id="B", fields={"y": "2"})])
+    add_comment(
+        record,
+        None,
+        [StructuredComment(tagset_id="A", fields={"x": "1"}), StructuredComment(tagset_id="B", fields={"y": "2"})],
+    )
     assert record.annotations["structured_comment"] == {"A": {"x": "1"}, "B": {"y": "2"}}  # type: ignore[comparison-overlap]
 
 
@@ -715,7 +866,7 @@ def test_add_comment_structured_comment_without_tagset_id_no_structured_comment_
 
 def test_set_date_none_uses_todays_date() -> None:
     record = _new_record()
-    expected = datetime.now().strftime("%d-%b-%Y").upper()
+    expected = datetime.now().astimezone().strftime("%d-%b-%Y").upper()
     set_date(record, None)
     assert record.annotations["date"] == expected
 

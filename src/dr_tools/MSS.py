@@ -1,25 +1,36 @@
-#!/usr/bin/env python3
 import re
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ddbj_record.schema.v3 import DdbjRecord as DdbjRecordV3
-from ddbj_record.schema.v3 import (Person, Publication, Relation,
-                                   StructuredComment)
+from ddbj_record.schema.v3 import Person, Publication, Relation, StructuredComment
 
-from dr_tools.json_utils import (QualifierValues, feature_qualifier_values,
-                                 features_by_entry, get_entry_id,
-                                 get_locus_tag_prefix,
-                                 load_json_to_ddbj_record_instance,
-                                 merge_source_qualifiers)
+from dr_tools.json_utils import (
+    QualifierValues,
+    feature_qualifier_values,
+    features_by_entry,
+    get_entry_id,
+    get_locus_tag_prefix,
+    load_json_to_ddbj_record_instance,
+    merge_source_qualifiers,
+)
 
 # 値を持たない qualifier の名前。ann では値なしの qualifier と空文字列の qualifier を区別できないので、
 # ann を読むときはこの名前のときだけ True (値なし) にする。record v3 から読むときは value の無い
 # qualifier を全て True にするので、この一覧は使わない。
-BOOL_QUALIFIERS = ["pseudo", "environmental_sample", "ribosomal_slippage", "circular_RNA",
-                   "proviral", "focus", "germline", "macronuclear", "circular"]  # circular is only for topology
+BOOL_QUALIFIERS = [
+    "pseudo",
+    "environmental_sample",
+    "ribosomal_slippage",
+    "circular_RNA",
+    "proviral",
+    "focus",
+    "germline",
+    "macronuclear",
+    "circular",
+]  # circular is only for topology
 # the list above may need to be updated. See https://www.ddbj.nig.ac.jp/ddbj/qualifiers.html
 
 # DBLINK の qualifier と、record の relations (xref) の db の対応
@@ -31,8 +42,23 @@ DBLINK_KEY_TO_DB = {
 DB_TO_DBLINK_KEY = {db: key for key, db in DBLINK_KEY_TO_DB.items()}
 
 # SUBMITTER の qualifier の並び。record から ann を書くときにこの順で並べる
-SUBMITTER_KEYS = ["ab_name", "contact", "email", "url", "institute", "department", "consrtm",
-                  "country", "state", "city", "street", "zip"]
+SUBMITTER_KEYS = [
+    "ab_name",
+    "contact",
+    "email",
+    "url",
+    "institute",
+    "department",
+    "consrtm",
+    "country",
+    "state",
+    "city",
+    "street",
+    "zip",
+]
+
+# show() で表示する配列の先頭の長さ
+SHOW_SEQUENCE_LENGTH = 10
 
 _YYYYMMDD = re.compile(r"\d{8}")
 _YYYY_MM_DD = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -68,6 +94,7 @@ class Sequence:
     """
     DDBJアノテーションファイルのFASTAファイルの情報を格納する
     """
+
     id: str
     seq: str
 
@@ -77,10 +104,8 @@ class Sequence:
         デフォルトでは60文字で改行
         separator=Trueにした場合、DDBJ登録用に // を末尾に加える
         """
-        fasta = []
-        fasta.append(f">{self.id}")
-        for i in range(0, len(self.seq), width):
-            fasta.append(self.seq[i:i+width])
+        fasta = [f">{self.id}"]
+        fasta.extend(self.seq[i : i + width] for i in range(0, len(self.seq), width))
         fasta_str = "\n".join(fasta)
         if separator:
             fasta_str += "\n//"
@@ -99,28 +124,28 @@ class Feature:
             - キー：修飾子の名前（例：'product', 'note'など）
             - 値：修飾子の値のリスト。値を持たない修飾子の場合は True
     """
+
     type: str
     id: int | str
     location: str = ""  # COMMONタイプの場合は空文字列
-    qualifiers: Dict[str, List[str | bool]] = field(default_factory=dict)
+    qualifiers: dict[str, list[str | bool]] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the feature to a dictionary"""
-        d = {
-            "id": self.id,
-            "type": self.type,
-            "location": self.location,
-            "qualifiers": self.qualifiers
-        }
-        locus_tag = self.qualifiers.get("locus_tag", [""])[0]
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Convert the feature to a dictionary
+        locus_tag は qualifiers から外して locus_tag_id にする。self.qualifiers は変えない
+        """
+        qualifiers = dict(self.qualifiers)
+        d: dict[str, Any] = {"id": self.id, "type": self.type, "location": self.location, "qualifiers": qualifiers}
+        locus_tag = qualifiers.get("locus_tag", [""])[0]
         if isinstance(locus_tag, str) and locus_tag:
             if "_" not in locus_tag:
                 raise ValueError(f"Invalid locus_tag: {locus_tag}")
-            del d["qualifiers"]["locus_tag"]  # type: ignore
+            del qualifiers["locus_tag"]
             d["locus_tag_id"] = locus_tag.split("_", 1)[1]
         return d
 
-    def to_tsv(self) -> List[List[str]]:
+    def to_tsv(self) -> list[list[str]]:
         """
         ５列TSV形式に変換する
 
@@ -168,11 +193,12 @@ class Entry:
     MSS 登録ファイルと FASTA に書き出す識別子は name に統一する
     (mss.ann の1列目、mss.fasta のヘッダ、genome.fna のヘッダ)。
     """
+
     id: str
     name: str
-    features: List[Feature] = field(default_factory=list)
+    features: list[Feature] = field(default_factory=list)
 
-    def to_tsv(self) -> List[List[str]]:
+    def to_tsv(self) -> list[list[str]]:
         # ５列TSV形式に変換
         tsv = []
         for feature in self.features:
@@ -193,8 +219,8 @@ class Entry:
 class MSS:
     ann_file: Path | None
     seq_file: Path | None
-    entries: List[Entry] = field(default_factory=list)
-    sequences: List[Sequence] = field(default_factory=list)
+    entries: list[Entry] = field(default_factory=list)
+    sequences: list[Sequence] = field(default_factory=list)
 
     @staticmethod
     def parse(ann_file: Path, seq_file: Path) -> "MSS":
@@ -202,19 +228,22 @@ class MSS:
         MSSのannファイルとseqファイルをパースしてMSSインスタンスを作成する
         """
         current_entry = None
-        current_feature: Optional[Feature] = None
+        current_feature: Feature | None = None
         feature_counter = 1  # 連番カウンター
         mss = MSS(ann_file=ann_file, seq_file=seq_file)
         if mss.ann_file is None or mss.seq_file is None:
             raise ValueError("MSS instance must have ann_file and seq_file")
 
-        with open(mss.ann_file, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip("\n")
+        with open(mss.ann_file, encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip("\n")
                 if not line:
                     continue
                 # ５列に分割. entry, feature, location, qualifier_key, qualifier_value
-                col_entry, col_feature, col_location, col_qkey, col_qvalue = line.split("\t", 4)
+                # 末尾の空の列のタブが省かれた行もあるので、足りない列は空文字列で埋める
+                columns = line.split("\t", 4)
+                columns += [""] * (5 - len(columns))
+                col_entry, col_feature, col_location, col_qkey, col_qvalue = columns
 
                 if col_entry:
                     # 列1に値を持つ場合は新しいEntryを作成
@@ -228,36 +257,42 @@ class MSS:
                     if current_entry is not None:
                         current_entry.features.append(current_feature)
 
-                if col_location:
+                if col_location and current_feature is not None:
                     # 列3に値を持つ場合はcurrent_featureのlocationを設定
-                    if current_feature is not None:
-                        current_feature.location = col_location
+                    current_feature.location = col_location
 
-                if col_qkey:
-                    if current_feature is not None:
-                        # current_featureにqualifierを追加
-                        if col_qkey in BOOL_QUALIFIERS and col_qvalue == "":
-                            # 値が空の場合はTrueを追加
-                            current_feature.qualifiers.setdefault(col_qkey, []).append(True)
-                        else:
-                            current_feature.qualifiers.setdefault(col_qkey, []).append(col_qvalue)
+                if col_qkey and current_feature is not None:
+                    # current_featureにqualifierを追加
+                    if col_qkey in BOOL_QUALIFIERS and col_qvalue == "":
+                        # 値が空の場合はTrueを追加
+                        current_feature.qualifiers.setdefault(col_qkey, []).append(True)
+                    else:
+                        current_feature.qualifiers.setdefault(col_qkey, []).append(col_qvalue)
         mss.parse_seq()
         return mss
 
     def parse_seq(self) -> None:
-        """Parse the DDBJ sequence file"""
+        """
+        Parse the DDBJ sequence file
+        > で始まる行が配列名で、次の > までの行をつないだものを配列にする。// だけの行 (DDBJ の区切り) は読み飛ばす
+        """
         if self.seq_file is None:
             raise ValueError("MSS instance must have seq_file")
-        with open(self.seq_file, "r", encoding="utf-8") as f:
-            entries_str = f.read()
-            entries_str = entries_str.replace("//\n", "")  # remove trailing slash (// in DDBJ format)
-            entries = entries_str.split(">")
-            entries = entries[1:]  # remove the first empty entry
-            for entry in entries:
-                lines = entry.split("\n")
-                seq_id = lines[0]
-                seq = "".join(lines[1:])
-                self.sequences.append(Sequence(id=seq_id, seq=seq))
+        seq_id: str | None = None
+        seq_lines: list[str] = []
+        with open(self.seq_file, encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.rstrip("\n")
+                if line.startswith(">"):
+                    if seq_id is not None:
+                        self.sequences.append(Sequence(id=seq_id, seq="".join(seq_lines)))
+                    seq_id, seq_lines = line[1:], []
+                elif line.strip() == "//":
+                    continue
+                elif seq_id is not None:
+                    seq_lines.append(line)
+        if seq_id is not None:
+            self.sequences.append(Sequence(id=seq_id, seq="".join(seq_lines)))
 
     def to_tsv(self) -> str:
         """Convert the parsed data to TSV format"""
@@ -268,10 +303,7 @@ class MSS:
 
     def to_fasta(self, width: int = 60, separator: bool = False) -> str:
         """Convert the parsed sequence data to FASTA format"""
-        fasta = []
-        for sequence in self.sequences:
-            fasta.append(sequence.to_fasta(width=width, separator=separator))
-        return "".join(fasta)
+        return "".join(sequence.to_fasta(width=width, separator=separator) for sequence in self.sequences)
 
     def write(self, out_ann_file: Path, out_seq_file: Path) -> None:
         with open(out_ann_file, "w", encoding="utf-8") as f:
@@ -290,8 +322,8 @@ class MSS:
             seq_id = sequence.id
             print(f"\n{seq_id}:")
             print(f"  Length: {len(sequence.seq)}")
-            if len(sequence.seq) > 10:
-                print(f"  Sequence: {sequence.seq[:10]}...")
+            if len(sequence.seq) > SHOW_SEQUENCE_LENGTH:
+                print(f"  Sequence: {sequence.seq[:SHOW_SEQUENCE_LENGTH]}...")
             else:
                 print(f"  Sequence: {sequence.seq}")
 
@@ -324,19 +356,21 @@ class MSS:
         for entry_data in (sequences.entries if sequences is not None else None) or []:
             entry_id = get_entry_id(entry_data)
             entry = Entry(id=entry_id, name=entry_data.name or entry_id)
-            features: List[Feature] = []
+            features: list[Feature] = []
 
             # source feature を作成し、common_source の内容を entry の source で上書きして展開する
             for i, source_feature in enumerate(entry_data.source_features or []):
                 qualifiers = merge_source_qualifiers(common_source, source_feature.source)
                 if source_feature.definition:
                     qualifiers["ff_definition"] = list(source_feature.definition)
-                features.append(Feature(
-                    id=source_feature.alias or f"source_{entry_id}_{i + 1}",
-                    type="source",
-                    location=source_feature.location or "",
-                    qualifiers=qualifiers,
-                ))
+                features.append(
+                    Feature(
+                        id=source_feature.alias or f"source_{entry_id}_{i + 1}",
+                        type="source",
+                        location=source_feature.location or "",
+                        qualifiers=qualifiers,
+                    )
+                )
 
             # topologyがcircularの場合、TOPOLOGY featureを追加
             if entry_data.topology == "circular":
@@ -344,20 +378,23 @@ class MSS:
 
             # entry の COMMENT
             for i, comment in enumerate(entry_data.comments or []):
-                comment_lines: List[str | bool] = list(comment.split("\n"))
-                features.append(Feature(id=f"{entry_id}_comment_{i + 1}", type="COMMENT",
-                                        qualifiers={"line": comment_lines}))
+                comment_lines: list[str | bool] = list(comment.split("\n"))
+                features.append(
+                    Feature(id=f"{entry_id}_comment_{i + 1}", type="COMMENT", qualifiers={"line": comment_lines})
+                )
 
             # その他のfeatureを追加
             for j, feature_data in enumerate(grouped_features.pop(entry_id, [])):
                 if not feature_data.type:
                     raise ValueError(f"feature {feature_data.alias!r} of entry {entry_id} has no type")
-                features.append(Feature(
-                    id=feature_data.alias or f"feature_{entry_id}_{j + 1}",
-                    type=feature_data.type,
-                    location=feature_data.location or "",
-                    qualifiers=feature_qualifier_values(feature_data, locus_tag_prefix),
-                ))
+                features.append(
+                    Feature(
+                        id=feature_data.alias or f"feature_{entry_id}_{j + 1}",
+                        type=feature_data.type,
+                        location=feature_data.location or "",
+                        qualifiers=feature_qualifier_values(feature_data, locus_tag_prefix),
+                    )
+                )
 
             entry.features = features
             # シーケンスの作成 (FASTA のヘッダは ann の1列目と揃えて entry.name を使う)
@@ -367,7 +404,8 @@ class MSS:
         for sequence_id, features_left in grouped_features.items():
             warnings.warn(
                 f"{len(features_left)} feature(s) refer to unknown entry {sequence_id!r}; dropped",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
 
         return mss
@@ -379,9 +417,13 @@ def _common_entry_from_record(record: DdbjRecordV3) -> Entry:
 
     def _add(feature_type: str, qualifiers: QualifierValues) -> None:
         if qualifiers:
-            common_entry.features.append(Feature(
-                id=f"feature_{len(common_entry.features) + 1}", type=feature_type, qualifiers=qualifiers,
-            ))
+            common_entry.features.append(
+                Feature(
+                    id=f"feature_{len(common_entry.features) + 1}",
+                    type=feature_type,
+                    qualifiers=qualifiers,
+                )
+            )
 
     submission = record.submission
     sequences = record.sequences
@@ -406,7 +448,7 @@ def _common_entry_from_record(record: DdbjRecordV3) -> Entry:
     return common_entry
 
 
-def _dblink_qualifiers(relations: List[Relation] | None) -> QualifierValues:
+def _dblink_qualifiers(relations: list[Relation] | None) -> QualifierValues:
     """relations の xref を DBLINK の qualifier にする。DBLINK に書けない db は警告を出して落とす"""
     qualifiers: QualifierValues = {}
     for relation in relations or []:
@@ -416,21 +458,22 @@ def _dblink_qualifiers(relations: List[Relation] | None) -> QualifierValues:
         if key is None:
             warnings.warn(
                 f"xref to {relation.target.db!r} ({relation.target.id}) has no place in DBLINK; dropped",
-                UserWarning, stacklevel=3,
+                UserWarning,
+                stacklevel=3,
             )
             continue
         qualifiers.setdefault(key, []).append(relation.target.id)
     return qualifiers
 
 
-def _submitter_qualifiers(submitters: List[Person] | None) -> QualifierValues:
+def _submitter_qualifiers(submitters: list[Person] | None) -> QualifierValues:
     """
     submitters を SUBMITTER の qualifier にする
     先頭の人が連絡先で、contact / email / 所属は先頭の人から取る。ab_name は abbreviation を持つ全員から取る
     """
     if not submitters:
         return {}
-    values: Dict[str, List[str]] = {}
+    values: dict[str, list[str]] = {}
     ab_names = [person.abbreviation for person in submitters if person.abbreviation]
     if ab_names:
         values["ab_name"] = ab_names
@@ -454,8 +497,13 @@ def _submitter_qualifiers(submitters: List[Person] | None) -> QualifierValues:
             values["department"] = [institution.department]
         address = institution.address
         if address is not None:
-            for key, value in (("country", address.country), ("state", address.state), ("city", address.city),
-                               ("street", address.street), ("zip", address.postal_code)):
+            for key, value in (
+                ("country", address.country),
+                ("state", address.state),
+                ("city", address.city),
+                ("street", address.street),
+                ("zip", address.postal_code),
+            ):
                 if value:
                     values[key] = [value]
     if consortiums and consortiums[0].name:
@@ -493,26 +541,3 @@ def _structured_comment_qualifiers(structured_comment: StructuredComment) -> Qua
     for key, value in (structured_comment.fields or {}).items():
         qualifiers[key] = [value]
     return qualifiers
-
-
-def test() -> None:
-    input_ann, input_seq = "examples/complete_genome.ann", "examples/complete_genome.fa"
-    output_ann, output_seq = "complete_genome_test.ann", "complete_genome_test.fa"
-    # MSSファイルをパース
-    mss = MSS.parse(Path(input_ann), Path(input_seq))
-    mss.write(Path(output_ann), Path(output_seq))
-    # print(mss.to_fasta(separator=True), end="")
-    # 結果を表示
-
-    # 内容が一致することを確認
-    with open(input_ann, "r", encoding="utf-8") as f_in, open(output_ann, "r", encoding="utf-8") as f_out:
-        assert f_out.read() == f_in.read()
-
-    # テストファイルを削除
-    import os
-    os.remove("complete_genome_test.ann")
-    os.remove("complete_genome_test.fa")
-
-
-if __name__ == "__main__":
-    test()

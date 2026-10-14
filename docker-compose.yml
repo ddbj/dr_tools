@@ -4,5 +4,8 @@ services:
     volumes:
       - .:/dr_tools
     working_dir: /dr_tools
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      UV_CACHE_DIR: /tmp/uv-cache
     init: true
     command: ["sleep", "infinity"]

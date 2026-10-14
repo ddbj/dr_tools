@@ -1,18 +1,21 @@
 import argparse
 import sys
 from pathlib import Path
-from typing import Tuple
 
 from ddbj_record.schema.v3 import Entry, Feature
 
-from dr_tools.json_utils import (features_by_entry, get_entry_id,
-                                 get_locus_tag_prefix, json_to_seqfeature,
-                                 load_json_to_ddbj_record_instance)
+from dr_tools.json_utils import (
+    features_by_entry,
+    get_entry_id,
+    get_locus_tag_prefix,
+    json_to_seqfeature,
+    load_json_to_ddbj_record_instance,
+)
 
 GENE_FEATURE_TYPES = ["CDS", "rRNA", "tRNA", "tmRNA", "ncRNA", "misc_RNA"]
 
 
-def json_to_gene_seq(feature: Feature, entry: Entry, locus_tag_prefix: str) -> Tuple[str, str, str]:
+def json_to_gene_seq(feature: Feature, entry: Entry, locus_tag_prefix: str) -> tuple[str, str, str]:
     """
     record v3 の feature から遺伝子の FASTA の description、塩基配列、タンパク質配列を取得する
     description の書式は "{locus_tag} {product} [type={product}] [location={location}]"
@@ -25,10 +28,7 @@ def json_to_gene_seq(feature: Feature, entry: Entry, locus_tag_prefix: str) -> T
     gene = seq_feature.qualifiers.get("gene", [""])[0]
     location = feature.location or "unknown location"
     entry_name = entry.name or get_entry_id(entry)
-    if feature_type == "CDS":
-        translate = seq_feature.qualifiers.get("translation", [""])[0]
-    else:
-        translate = ""
+    translate = seq_feature.qualifiers.get("translation", [""])[0] if feature_type == "CDS" else ""
     nucleotide = str(nucleotide_seq).upper()
     if gene:
         description = f"{locus_tag} {product} [gene={gene}] [type={feature_type}] [location={entry_name}:{location}]"
@@ -80,9 +80,15 @@ def json2fasta(json_file: Path, out_dir: Path) -> None:
 
 def json2fasta_main() -> None:
     # 引数のパース
-    parser = argparse.ArgumentParser(description='Convert MSS json file to genome and gene FASTA files')
-    parser.add_argument('json_file', type=str, help='MSS json file')
-    parser.add_argument('-O', '--out_dir', type=str, help='Output directory. By default, output files are saved in the current directory.', default=None)
+    parser = argparse.ArgumentParser(description="Convert MSS json file to genome and gene FASTA files")
+    parser.add_argument("json_file", type=str, help="MSS json file")
+    parser.add_argument(
+        "-O",
+        "--out_dir",
+        type=str,
+        help="Output directory. By default, output files are saved in the current directory.",
+        default=None,
+    )
 
     if len(sys.argv) == 1:
         parser.print_help()

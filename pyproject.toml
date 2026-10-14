@@ -17,10 +17,9 @@ dependencies = [
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = ["build", "twine", "pytest", "pytest-mock", "hypothesis", "mypy"]
+dev = ["pytest", "pytest-mock", "hypothesis", "mypy", "ruff"]
 
 [project.scripts]
-drt_hello = "dr_tools:hello"
 drt_ann2json = "dr_tools.ann2json:main"
 drt_json2ann = "dr_tools.json2ann:main"
 drt_json2gbk = "dr_tools.json2biopython:json2gbk_main"
@@ -44,21 +43,68 @@ strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 
-[tool.pylint.messages_control]
-disable = [
-    "C0114", # Missing module docstring
-    "C0115", # Missing class docstring
-    "C0116", # Missing function or method docstring
-    "C0301", # Line too long
-    "R0801", # Similar lines in 2 files
-    "R0903", # Too few public methods
-    "R0911", # Too many return statements
-    "R0912", # Too many branches
-    "R0913", # Too many arguments
-    "R0914", # Too many local variables
-    "R1705", # Unnecessary "else" after "return"
-    "W0511", # Fixme
-    "W0718", # Broad exception caught
-    "W0719", # Exception type of Exception
-    "I1101", # c-extension-no-member
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+src = ["src", "tests"]
+# README.md の Python のコードブロックには出力例も書くので、整形しない
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "A",     # flake8-builtins
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+    "PL",    # pylint
+    "S",     # flake8-bandit
+    "T20",   # flake8-print
+    "PT",    # flake8-pytest-style
+    "PERF",  # perflint
+    "FURB",  # refurb
+    "PIE",   # flake8-pie
+    "RSE",   # flake8-raise
+    "RET",   # flake8-return
+    "ARG",   # flake8-unused-arguments
+    "FBT",   # flake8-boolean-trap
+    "DTZ",   # flake8-datetimez
+    "ISC",   # flake8-implicit-str-concat
+    "ICN",   # flake8-import-conventions
+    "Q",     # flake8-quotes
+    "FLY",   # flynt
+    "LOG",   # flake8-logging
+    "G",     # flake8-logging-format
+    "ERA",   # eradicate
+    "TID",   # flake8-tidy-imports
+    "YTT",   # flake8-2020
+    "EXE",   # flake8-executable
 ]
+ignore = [
+    "E501",     # 行の長さは ruff format に任せる
+    "PLR0911", "PLR0912", "PLR0913", "PLR0914", "PLR0915", "PLR0917",
+    "RET505",
+    "FBT001", "FBT002",  # 公開している関数の bool 引数 (json2stats_for_dfast の format_) の形を変えない
+    "S101",
+    "ISC001",   # ruff format と競合する
+    "RUF001", "RUF002", "RUF003",  # 日本語の文字列・docstring・コメントは全角の記号を使う
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "PLR2004", "S108", "ARG001", "PLC0415",
+    "FBT003",  # hypothesis の st.just(True) など
+    "FLY002",  # MSS の行を 1 行ずつ並べて join する
+]
+# CLI の出力と、MSS の show() の表示に print を使う
+"src/dr_tools/{MSS,ann2json,json2biopython,json2stats}.py" = ["T201"]
+"src/dr_tools/MSS.py" = ["N999"]  # 公開している module の名前を変えない
+
+[tool.ruff.lint.isort]
+known-first-party = ["dr_tools"]
