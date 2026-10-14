@@ -17,7 +17,7 @@ dependencies = [
 license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-mock", "hypothesis", "mypy", "ruff"]
+dev = ["pytest", "hypothesis", "mypy", "ruff"]
 
 [project.scripts]
 drt_ann2json = "dr_tools.ann2json:main"
