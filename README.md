@@ -33,7 +33,8 @@ MSS の ann と v3 の対応:
 | ST_COMMENT | `sequences.structured_comments[]` |
 | DATE `hold_date` (YYYYMMDD) | `submission.hold_date` (YYYY-MM-DD) |
 | KEYWORD | `sequences.keywords[]` |
-| DATATYPE `type` WGS | `provenance.submission_category` (`WGS` / `GNM`) |
+| DIVISION `division` ENV | `entries[].division` (全ての entry) |
+| DATATYPE `type` WGS | `provenance.submission_category` (読むときは `WGS` / `GNM`。書くときは `WGS` と `MAG-WGS` のように末尾が `-WGS` のもの) |
 | 全ての entry で同じ source の qualifier | `sequences.common_source` |
 | entry 固有の source の qualifier (`/plasmid` など) | `entries[].source_features[].source` (`common_source` を名前ごとに上書きする) |
 | source の `ff_definition` | `entries[].source_features[].definition` |
@@ -41,7 +42,7 @@ MSS の ann と v3 の対応:
 | feature の `locus_tag` | `projects[0].locus_tag_prefix[0].prefix` と `features[].locus_tag_id` |
 | 値の無い qualifier (`/pseudo` など) | `value` を省いた qualifier (`{}`) |
 
-`entries[].type` は source の qualifier から決める (`/plasmid` → plasmid、`/chromosome` → chromosome、`/organelle` → organelle、`/segment` → segment、無ければ WGS は unplaced、division が VRL なら segment、それ以外は chromosome)。`entries[].completeness` は `ff_definition` の文から決める (complete / nearly complete / partial。読めなければ省く)。`entries[].division` は `drt_ann2json` の `division` 引数で、省くと DFAST の出力では BCT、それ以外は UNK になる。
+`entries[].type` は source の qualifier から決める (`/plasmid` → plasmid、`/chromosome` → chromosome、`/organelle` → organelle、`/segment` → segment、無ければ WGS は unplaced、division が VRL なら segment、それ以外は chromosome)。`entries[].completeness` は `ff_definition` の文から決める (complete / nearly complete / partial。読めなければ省く)。`entries[].division` は COMMON の DIVISION で、DIVISION が無ければ `drt_ann2json` の `division` 引数で、それも省くと DFAST の出力では BCT、それ以外は UNK になる。v3 から ann を書くときは、entry の division が ENV なら DIVISION を書き、BCT や VRL などの分類の division (DDBJ が決める) は書かない。
 
 ## Usage
 

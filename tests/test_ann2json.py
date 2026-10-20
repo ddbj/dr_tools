@@ -432,6 +432,23 @@ def test_ann2json_v3_explicit_division_overrides_default(eg_complete: dict[str, 
     assert {entry["division"] for entry in data["sequences"]["entries"]} == {"ENV"}
 
 
+def test_ann2json_v3_division_feature_overrides_division_argument(eg_complete: dict[str, Path], tmp_path: Path) -> None:
+    ann = eg_complete["ann"].read_text(encoding="utf-8")
+    ann_file = tmp_path.joinpath("env.ann")
+    ann_file.write_text(ann.replace("COMMON\t", "COMMON\tDIVISION\t\tdivision\tENV\n\t", 1), encoding="utf-8")
+    data = _ann2json_v3(ann_file, eg_complete["seq"], tmp_path, division="BCT")
+    assert {entry["division"] for entry in data["sequences"]["entries"]} == {"ENV"}
+
+
+def test_mss_division_survives_record_round_trip(eg_complete: dict[str, Path], tmp_path: Path) -> None:
+    data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path, division="ENV")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mss = MSS.from_record(V3DdbjRecord.model_validate(data))
+    common = next(entry for entry in mss.entries if entry.id == "COMMON")
+    assert [f.qualifiers for f in common.features if f.type == "DIVISION"] == [{"division": ["ENV"]}]
+
+
 def test_ann2json_v3_without_dfast_comment_division_defaults_to_unk(eg_vrl: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_vrl["ann"], eg_vrl["seq"], tmp_path)
     assert data["sequences"]["entries"][0]["division"] == "UNK"

@@ -558,6 +558,42 @@ def test_from_record_submission_category_gnm_has_no_datatype_feature() -> None:
     assert _common_feature(MSS.from_record(record), "DATATYPE") is None
 
 
+def test_from_record_submission_category_mag_wgs_writes_datatype_feature() -> None:
+    record = _v3_record(provenance={"submission_category": "MAG-WGS"})
+    datatype = _common_feature(MSS.from_record(record), "DATATYPE")
+    assert datatype is not None
+    assert datatype.qualifiers == {"type": ["WGS"]}
+
+
+def test_from_record_submission_category_mag_gnm_has_no_datatype_feature() -> None:
+    record = _v3_record(provenance={"submission_category": "MAG-GNM"})
+    assert _common_feature(MSS.from_record(record), "DATATYPE") is None
+
+
+def test_from_record_env_division_writes_division_feature_before_datatype() -> None:
+    record = _v3_record(
+        provenance={"submission_category": "MAG-WGS"},
+        sequences={
+            "entries": [
+                {"alias": "e1", "name": "e1", "sequence": "acgt", "division": "ENV"},
+                {"alias": "e2", "name": "e2", "sequence": "acgt", "division": "ENV"},
+            ]
+        },
+    )
+    common = _features_of(MSS.from_record(record), "COMMON")
+    assert [f.qualifiers for f in common if f.type == "DIVISION"] == [{"division": ["ENV"]}]
+    types = [f.type for f in common]
+    assert types.index("DIVISION") < types.index("DATATYPE")
+
+
+@pytest.mark.parametrize("division", ["BCT", "VRL", "UNK", None])
+def test_from_record_taxonomic_division_has_no_division_feature(division: str | None) -> None:
+    record = _v3_record(
+        sequences={"entries": [{"alias": "e1", "name": "e1", "sequence": "acgt", "division": division}]}
+    )
+    assert _common_feature(MSS.from_record(record), "DIVISION") is None
+
+
 def test_from_record_keywords_become_keyword_feature() -> None:
     record = _v3_record(sequences={"entries": [], "keywords": ["WGS", "STANDARD_DRAFT"]})
     keyword = _common_feature(MSS.from_record(record), "KEYWORD")

@@ -17,6 +17,10 @@ from dr_tools.json_utils import (
     merge_source_qualifiers,
 )
 
+# COMMON の DIVISION に書く division。BCT や VRL などの分類の division は DDBJ が決めるので書かない。
+# MAG (metagenome-assembled genome) の entry は ENV になる。
+MSS_DIVISIONS = ("ENV",)
+
 # 値を持たない qualifier の名前。ann では値なしの qualifier と空文字列の qualifier を区別できないので、
 # ann を読むときはこの名前のときだけ True (値なし) にする。record v3 から読むときは value の無い
 # qualifier を全て True にするので、この一覧は使わない。
@@ -439,13 +443,35 @@ def _common_entry_from_record(record: DdbjRecordV3) -> Entry:
         _add("ST_COMMENT", _structured_comment_qualifiers(structured_comment))
     if submission is not None and submission.hold_date:
         _add("DATE", {"hold_date": [hold_date_to_mss(submission.hold_date)]})
-    if record.provenance is not None and record.provenance.submission_category == "WGS":
+    division = _mss_division(record)
+    if division is not None:
+        _add("DIVISION", {"division": [division]})
+    if record.provenance is not None and is_wgs_category(record.provenance.submission_category):
         _add("DATATYPE", {"type": ["WGS"]})
     keywords = sequences.keywords if sequences is not None else None
     if keywords:
         _add("KEYWORD", {"keyword": list(keywords)})
 
     return common_entry
+
+
+def is_wgs_category(submission_category: str | None) -> bool:
+    """WGS と、MAG-WGS のように末尾が -WGS の登録区分を WGS とする"""
+    return submission_category is not None and submission_category.split("-")[-1] == "WGS"
+
+
+def _mss_division(record: DdbjRecordV3) -> str | None:
+    """
+    COMMON の DIVISION に書く division。entry の division のうち MSS_DIVISIONS にあるものを返す
+    DIVISION は登録全体で 1 つなので、2 つ以上あれば警告を出して先頭のものを使う
+    """
+    entries = (record.sequences.entries if record.sequences is not None else None) or []
+    divisions = list(dict.fromkeys(entry.division for entry in entries if entry.division in MSS_DIVISIONS))
+    if not divisions:
+        return None
+    if len(divisions) > 1:
+        warnings.warn(f"entries have divisions {divisions}; DIVISION is {divisions[0]!r}", UserWarning, stacklevel=3)
+    return divisions[0]
 
 
 def _dblink_qualifiers(relations: list[Relation] | None) -> QualifierValues:

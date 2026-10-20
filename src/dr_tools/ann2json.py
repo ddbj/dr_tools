@@ -114,6 +114,16 @@ def get_submission_category(mss: MSS) -> str:
     return "GNM"
 
 
+def get_division(common_entry: Entry) -> str | None:
+    """COMMON entry の DIVISION feature の division。無ければ None"""
+    for feature in common_entry.features:
+        if feature.type == "DIVISION":
+            values = _text_values(feature, "division")
+            if values:
+                return values[0]
+    return None
+
+
 def get_seq_prefix(mss: MSS, submission_category: str) -> str | None:
     """
     seq_prefix の決定 (WGS の場合のみ)
@@ -619,13 +629,15 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
 
     - provenance.source_format は "MSS"、submission_category は DATATYPE から決める (WGS / GNM)
     - DFAST の version が COMMENT にあれば provenance.dfast_version に書く (型に無いキー)
-    - division を省くと、DFAST の出力なら BCT、そうでなければ UNK
+    - division は COMMON の DIVISION (ENV など) を使う。DIVISION が無ければ引数の division を使い、
+      それも省くと、DFAST の出力なら BCT、そうでなければ UNK
     - 全ての entry で同じ値の source の qualifier は sequences.common_source に置き、entry の source には
       entry 固有の qualifier だけを置く
     """
     common_entry = get_common_entry(mss)
     dfast_version = get_dfast_version(mss.entries)
     submission_category = get_submission_category(mss)
+    division = get_division(common_entry) or division
     if division is None:
         division = "BCT" if dfast_version else "UNK"
 
