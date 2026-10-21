@@ -119,7 +119,7 @@ GFF3 (`dr_tools.json2gff`) は、旧 DFAST と dfast_vrl の `genbank2gff.py` �
 
 - 複数の区間からなる位置 (join、環状ゲノムの原点をまたぐ位置) は、区間ごとに同じ ID の行を書き、CDS の phase を区間ごとに求める。`genbank2gff.py` は最小から最大までを 1 行にしたので、原点をまたぐ CDS がゲノムのほぼ全長になった
 - `/inference` に `:` が 2 つ無いときに落ちない
-- entry ごとに `##sequence-region` を書く。値の無い qualifier は `true`、strand の無い区間は `.` にする。属性の値の制御文字と `%` もエスケープする
+- entry ごとに、その entry の行の前に `##sequence-region` を書く。値の無い qualifier は `true`、strand の無い区間は `.` にする。属性の値の制御文字と `%` もエスケープする
 - GenBank のテキストを経由しないので、折り返しで product に入る空白を直す `fix_blank_in_products` は要らない
 
 `examples/` には `complete_genome` (DFAST の完全ゲノム) と `vrl_result` (DFAST_VRL のウイルスゲノム) の ann / fa と、それぞれを v1 (`*.json`)、v2 (`*.v2.json`)、v3 (`*.v3.json`) にした JSON がある。JSON の配列は 10 文字に切り詰めてある。

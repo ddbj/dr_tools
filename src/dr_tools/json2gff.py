@@ -5,6 +5,7 @@ DFAST (旧 DFAST の genbank2gff.py と dfast_vrl の dfv/genbank2gff.py) が出
 json_to_seqrecords が作る SeqRecord から書く。GenBank のテキストを経由しないので、旧 DFAST が
 fix_blank_in_products で直していた、折り返しで product に入る空白は生じない
 
+- entry ごとに、##sequence-region の行と、その entry の feature の行を続けて書く
 - 1 列目は entry の名前 (SeqRecord.name)。##sequence-region と ##FASTA の見出しも同じ名前を使う。
   GFF3 の seqid に使えない文字は %XX にする
 - 2 列目は /inference の最後の 2 つの要素 ("ab initio prediction:MetaGeneAnnotator" など)。無ければ "dfast"
@@ -129,12 +130,16 @@ def feature_lines(seqid: str, feature: SeqFeature) -> list[str]:
 
 
 def seqrecords_to_gff(seq_records: Iterable[SeqRecord]) -> str:
-    """SeqRecord の一覧を GFF3 の文字列にする。配列は末尾の ##FASTA に、大文字で、折り返さずに書く"""
+    """
+    SeqRecord の一覧を GFF3 の文字列にする
+    entry ごとに、##sequence-region の行を書き、続けてその entry の feature を書く。配列は末尾の ##FASTA に、
+    大文字で、折り返さずに書く
+    """
     records = list(seq_records)
     lines = [GFF_VERSION_LINE]
-    lines.extend(f"##sequence-region {escape_seqid(record.name)} 1 {len(record.seq or '')}" for record in records)
     for record in records:
         seqid = escape_seqid(record.name)
+        lines.append(f"##sequence-region {seqid} 1 {len(record.seq or '')}")
         for feature in record.features:
             if feature.type not in SKIPPED_FEATURE_TYPES:
                 lines.extend(feature_lines(seqid, feature))

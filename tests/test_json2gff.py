@@ -43,13 +43,8 @@ def _feature_lines(gff: str) -> list[list[str]]:
 def test_json_to_gff_writes_the_legacy_dfast_columns(eg_complete: dict[str, Path]) -> None:
     lines = json_to_gff(eg_complete["v3_json"]).splitlines()
 
-    assert lines[:4] == [
-        "##gff-version 3",
-        "##sequence-region chromosome 1 13",
-        "##sequence-region pPLH-1 1 13",
-        "##sequence-region pPLH-2 1 13",
-    ]
-    assert lines[4] == "\t".join(
+    assert lines[:2] == ["##gff-version 3", "##sequence-region chromosome 1 13"]
+    assert lines[2] == "\t".join(
         [
             "chromosome",
             "ab initio prediction:MetaGeneAnnotator",
@@ -66,6 +61,21 @@ def test_json_to_gff_writes_the_legacy_dfast_columns(eg_complete: dict[str, Path
             ),
         ]
     )
+
+
+def test_json_to_gff_each_entry_starts_with_its_sequence_region(eg_complete: dict[str, Path]) -> None:
+    """The sequence-region line of an entry comes right before the features of that entry."""
+    body = json_to_gff(eg_complete["v3_json"]).split("##FASTA")[0].splitlines()[1:]
+
+    seqid = None
+    regions = []
+    for line in body:
+        if line.startswith("##sequence-region "):
+            seqid = line.split()[1]
+            regions.append(seqid)
+        else:
+            assert line.split("\t")[0] == seqid
+    assert regions == ["chromosome", "pPLH-1", "pPLH-2"]
 
 
 def test_json_to_gff_trna_is_on_the_minus_strand_with_no_phase(eg_complete: dict[str, Path]) -> None:
