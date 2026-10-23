@@ -10,7 +10,9 @@ fix_blank_in_products で直していた、折り返しで product に入る空�
   GFF3 の seqid に使えない文字は %XX にする
 - 2 列目は /inference の最後の 2 つの要素 ("ab initio prediction:MetaGeneAnnotator" など)。無ければ "dfast"
 - gene、source、assembly_gap は書かない
-- 9 列目は ID (locus_tag があるとき) と、codon_start と transl_table を除く全ての qualifier
+- 9 列目は ID と、codon_start と transl_table を除く全ての qualifier。属性が 1 つも無ければ "."
+- ID は locus_tag。locus_tag の無い feature は ID を持たないが、区間が複数あるときだけ、ファイルの中で一意な ID
+  (entry の名前_type_番号) を作る。GFF3 は、同じ ID の行を 1 つの feature として読むため
 - 複数の区間からなる位置 (join、原点をまたぐ位置) は、区間ごとに同じ ID の行を書く。CDS の phase は区間ごとに求める
 """
 
@@ -57,7 +59,10 @@ def escape_column(value: str) -> str:
 
 
 def escape_seqid(value: str) -> str:
-    return "".join(c if c in _SEQID_SAFE else f"%{ord(c):02X}" for c in value)
+    """seqid に使えない文字を、UTF-8 のバイトごとに %XX にする"""
+    return "".join(
+        c if c in _SEQID_SAFE else "".join(f"%{b:02X}" for b in c.encode("utf-8", "surrogatepass")) for c in value
+    )
 
 
 def feature_source(feature: SeqFeature) -> str:
@@ -96,26 +101,30 @@ def part_phases(feature: SeqFeature) -> list[str]:
     return phases
 
 
-def feature_attributes(feature: SeqFeature) -> str:
-    """9 列目。locus_tag があれば ID にし、続けて qualifier を名前=値,値 の形で並べる"""
+def locus_tag_of(feature: SeqFeature) -> str:
+    """feature の locus_tag。無ければ空文字列"""
+    return str(feature.qualifiers.get("locus_tag", [""])[0])
+
+
+def feature_attributes(feature: SeqFeature, feature_id: str | None) -> str:
+    """9 列目。feature_id があれば ID にし、続けて qualifier を名前=値,値 の形で並べる。属性が無ければ "." """
     attributes = []
-    locus_tag = feature.qualifiers.get("locus_tag", [""])[0]
-    if locus_tag:
-        attributes.append(f"ID={escape_attribute_value(locus_tag)}")
+    if feature_id:
+        attributes.append(f"ID={escape_attribute_value(feature_id)}")
     for key, values in feature.qualifiers.items():
         if key in SKIPPED_QUALIFIERS:
             continue
         written = [escape_attribute_value(value or VALUELESS_QUALIFIER_VALUE) for value in values]
         attributes.append(f"{escape_attribute_value(key)}={','.join(written)}")
-    return ";".join(attributes)
+    return ";".join(attributes) or "."
 
 
-def feature_lines(seqid: str, feature: SeqFeature) -> list[str]:
+def feature_lines(seqid: str, feature: SeqFeature, feature_id: str | None) -> list[str]:
     """1 つの feature の行。区間ごとに 1 行で、全ての行が同じ ID と属性を持つ。位置の無い feature は書かない"""
     if feature.location is None:
         return []
     source = escape_column(feature_source(feature))
-    attributes = feature_attributes(feature)
+    attributes = feature_attributes(feature, feature_id)
     lines = []
     for part, phase in zip(feature.location.parts, part_phases(feature), strict=True):
         if part.strand == -1:
@@ -136,13 +145,25 @@ def seqrecords_to_gff(seq_records: Iterable[SeqRecord]) -> str:
     大文字で、折り返さずに書く
     """
     records = list(seq_records)
+    # 作る ID が、どの feature の locus_tag とも重ならないようにする
+    used_ids = {locus_tag_of(feature) for record in records for feature in record.features} - {""}
+    made_ids = 0
     lines = [GFF_VERSION_LINE]
     for record in records:
         seqid = escape_seqid(record.name)
         lines.append(f"##sequence-region {seqid} 1 {len(record.seq or '')}")
         for feature in record.features:
-            if feature.type not in SKIPPED_FEATURE_TYPES:
-                lines.extend(feature_lines(seqid, feature))
+            if feature.type in SKIPPED_FEATURE_TYPES:
+                continue
+            feature_id: str | None = locus_tag_of(feature) or None
+            if feature_id is None and feature.location is not None and len(feature.location.parts) > 1:
+                made_ids += 1
+                feature_id = f"{record.name}_{feature.type}_{made_ids}"
+                while feature_id in used_ids:
+                    made_ids += 1
+                    feature_id = f"{record.name}_{feature.type}_{made_ids}"
+                used_ids.add(feature_id)
+            lines.extend(feature_lines(seqid, feature, feature_id))
     lines.append("##FASTA")
     for record in records:
         lines.append(f">{escape_seqid(record.name)}")

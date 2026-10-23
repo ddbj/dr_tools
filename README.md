@@ -117,9 +117,9 @@ print(json.dumps(data, indent=2))
 
 GFF3 (`dr_tools.json2gff`) は、旧 DFAST と dfast_vrl の `genbank2gff.py` が出してきた形で書く。gene、source、assembly_gap を除く feature を 1 行ずつにし、2 列目は `/inference` の末尾の 2 つの要素 (無ければ `dfast`)、9 列目は `ID=<locus_tag>` と、`codon_start` と `transl_table` を除く全ての qualifier である。配列は末尾の `##FASTA` に大文字で折り返さずに付ける。`genbank2gff.py` から次の点を直した。
 
-- 複数の区間からなる位置 (join、環状ゲノムの原点をまたぐ位置) は、区間ごとに同じ ID の行を書き、CDS の phase を区間ごとに求める。`genbank2gff.py` は最小から最大までを 1 行にしたので、原点をまたぐ CDS がゲノムのほぼ全長になった
+- 複数の区間からなる位置 (join、環状ゲノムの原点をまたぐ位置) は、区間ごとに同じ ID の行を書き、CDS の phase を区間ごとに求める。`genbank2gff.py` は最小から最大までを 1 行にしたので、原点をまたぐ CDS がゲノムのほぼ全長になった。locus_tag の無い feature (ウイルスの ORF1ab の CDS や mat_peptide など) は、ファイルの中で一意な ID (`<entry の名前>_<type>_<番号>`) を作って付ける。GFF3 は、同じ ID の行を 1 つの feature として読むため
 - `/inference` に `:` が 2 つ無いときに落ちない
-- entry ごとに、その entry の行の前に `##sequence-region` を書く。値の無い qualifier は `true`、strand の無い区間は `.` にする。属性の値の制御文字と `%` もエスケープする
+- entry ごとに、その entry の行の前に `##sequence-region` を書く。値の無い qualifier は `true`、strand の無い区間は `.`、属性が 1 つも無い feature の 9 列目は `.` にする。属性の値の制御文字と `%` もエスケープし、seqid に使えない文字は UTF-8 のバイトごとに `%XX` にする
 - GenBank のテキストを経由しないので、折り返しで product に入る空白を直す `fix_blank_in_products` は要らない
 
 `examples/` には `complete_genome` (DFAST の完全ゲノム) と `vrl_result` (DFAST_VRL のウイルスゲノム) の ann / fa と、それぞれを v1 (`*.json`)、v2 (`*.v2.json`)、v3 (`*.v3.json`) にした JSON がある。JSON の配列は 10 文字に切り詰めてある。

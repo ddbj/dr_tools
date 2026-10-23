@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -196,6 +197,46 @@ def test_feature_without_locus_tag_has_no_id() -> None:
     assert _feature_lines(seqrecords_to_gff([record]))[0][8] == "note=CRISPR"
 
 
+def test_location_of_several_parts_without_locus_tag_gets_one_id_of_its_own() -> None:
+    """GFF3 reads lines with no ID as separate features, so a joined ORF1ab of a virus would become two CDSs."""
+    records = [
+        _record(
+            _feature("join(1..10,10..30)", product=["ORF1ab"]),
+            _feature("join(1..5,10..20)", "mat_peptide", product=["nsp12"]),
+            name="seq1",
+        ),
+        _record(_feature("join(1..10,10..30)", product=["ORF1ab"]), name="seq2"),
+    ]
+
+    lines = _feature_lines(seqrecords_to_gff(records))
+
+    ids = [dict(a.split("=", 1) for a in c[8].split(";"))["ID"] for c in lines]
+    assert ids[0] == ids[1]
+    assert ids[2] == ids[3]
+    assert ids[4] == ids[5]
+    assert len({ids[0], ids[2], ids[4]}) == 3
+
+
+def test_made_id_does_not_take_a_locus_tag_of_another_feature() -> None:
+    record = _record(
+        _feature("31..40", locus_tag=["seq1_CDS_1"]),
+        _feature("join(1..10,10..30)", product=["ORF1ab"]),
+    )
+
+    lines = _feature_lines(seqrecords_to_gff([record]))
+
+    ids = [dict(a.split("=", 1) for a in c[8].split(";"))["ID"] for c in lines]
+    assert ids[0] == "seq1_CDS_1"
+    assert ids[1] == ids[2] != "seq1_CDS_1"
+
+
+def test_feature_without_attributes_has_a_dot_in_the_ninth_column() -> None:
+    """GFF3 writes "." for an empty column; the legacy converter left the column empty."""
+    record = _record(_feature("1..30", "5'UTR"))
+
+    assert _feature_lines(seqrecords_to_gff([record]))[0][8] == "."
+
+
 @given(st.text())
 def test_escaped_attribute_value_decodes_to_the_value(value: str) -> None:
     escaped = escape_attribute_value(value)
@@ -218,3 +259,14 @@ def test_seqid_with_characters_gff_does_not_allow_is_escaped_everywhere() -> Non
     assert "##sequence-region seq%201 1 100" in gff
     assert _feature_lines(gff)[0][0] == "seq%201"
     assert ">seq%201" in gff
+
+
+@given(st.text(min_size=1))
+def test_escaped_seqid_decodes_to_the_name(name: str) -> None:
+    """A name with letters outside ASCII is percent-encoded as its UTF-8 bytes, as GFF3 readers decode it."""
+    gff = seqrecords_to_gff([_record(_feature("1..30"), name=name)])
+    seqid = gff.splitlines()[1].split(" ")[1]
+
+    # The characters that the GFF3 specification allows in a seqid, and escapes.
+    assert re.fullmatch(r"(?:[a-zA-Z0-9.:^*$@!+_?|-]|%[0-9A-F]{2})*", seqid)
+    assert unquote(seqid, errors="strict") == name
