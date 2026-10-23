@@ -440,6 +440,18 @@ def test_ann2json_v3_division_feature_overrides_division_argument(eg_complete: d
     assert {entry["division"] for entry in data["sequences"]["entries"]} == {"ENV"}
 
 
+@pytest.mark.parametrize("value", ["TSA", "CON", "SYN", "HTG"])
+def test_ann2json_v3_division_feature_other_than_env_leaves_the_division_argument(
+    value: str, eg_complete: dict[str, Path], tmp_path: Path
+) -> None:
+    """Legacy DFAST and dfast_vrl write these, and MSS.from_record does not write them back."""
+    ann = eg_complete["ann"].read_text(encoding="utf-8")
+    ann_file = tmp_path.joinpath("tsa.ann")
+    ann_file.write_text(ann.replace("COMMON\t", f"COMMON\tDIVISION\t\tdivision\t{value}\n\t", 1), encoding="utf-8")
+    data = _ann2json_v3(ann_file, eg_complete["seq"], tmp_path, division="BCT")
+    assert {entry["division"] for entry in data["sequences"]["entries"]} == {"BCT"}
+
+
 def test_mss_division_survives_record_round_trip(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path, division="ENV")
     with warnings.catch_warnings():
