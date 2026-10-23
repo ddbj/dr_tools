@@ -463,15 +463,17 @@ def is_wgs_category(submission_category: str | None) -> bool:
 def _mss_division(record: DdbjRecordV3) -> str | None:
     """
     COMMON の DIVISION に書く division。entry の division のうち MSS_DIVISIONS にあるものを返す
-    DIVISION は登録全体で 1 つなので、2 つ以上あれば警告を出して先頭のものを使う
+    DIVISION は登録全体で 1 つなので、entry の division が 2 つ以上あれば (ENV と BCT など) 警告を出して、
+    MSS_DIVISIONS の先頭のものを使う。ann から読み戻すと、全ての entry がその division になる
     """
     entries = (record.sequences.entries if record.sequences is not None else None) or []
-    divisions = list(dict.fromkeys(entry.division for entry in entries if entry.division in MSS_DIVISIONS))
-    if not divisions:
+    divisions = list(dict.fromkeys(entry.division for entry in entries))
+    written = [division for division in divisions if division in MSS_DIVISIONS]
+    if not written:
         return None
     if len(divisions) > 1:
-        warnings.warn(f"entries have divisions {divisions}; DIVISION is {divisions[0]!r}", UserWarning, stacklevel=3)
-    return divisions[0]
+        warnings.warn(f"entries have divisions {divisions}; DIVISION is {written[0]!r}", UserWarning, stacklevel=3)
+    return written[0]
 
 
 def _dblink_qualifiers(relations: list[Relation] | None) -> QualifierValues:
