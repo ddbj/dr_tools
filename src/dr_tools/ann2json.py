@@ -33,7 +33,15 @@ from ddbj_record.schema.v3 import Feature as FeatureV3
 from pydantic import BaseModel
 
 from dr_tools.json_utils import QualifierValues, values_to_qualifiers
-from dr_tools.MSS import DBLINK_KEY_TO_DB, MSS, Entry, Feature, hold_date_to_record, reference_status_to_record
+from dr_tools.MSS import (
+    DBLINK_KEY_TO_DB,
+    MSS,
+    MSS_DIVISIONS,
+    Entry,
+    Feature,
+    hold_date_to_record,
+    reference_status_to_record,
+)
 
 DATA_MODEL_VERSION = "0.1"
 
@@ -112,6 +120,20 @@ def get_submission_category(mss: MSS) -> str:
                     return "WGS"
             break
     return "GNM"
+
+
+def get_division(common_entry: Entry) -> str | None:
+    """
+    COMMON entry の DIVISION feature の division。MSS_DIVISIONS に無い値 (TSA、CON など) と、DIVISION が無いときは None
+    MSS.from_record が書くのは MSS_DIVISIONS の値だけなので、読むのもその値だけにする。他の値を読むと、
+    引数の division より優先され、ann に戻すと消える
+    """
+    for feature in common_entry.features:
+        if feature.type == "DIVISION":
+            values = _text_values(feature, "division")
+            if values and values[0] in MSS_DIVISIONS:
+                return values[0]
+    return None
 
 
 def get_seq_prefix(mss: MSS, submission_category: str) -> str | None:
@@ -619,13 +641,15 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
 
     - provenance.source_format は "MSS"、submission_category は DATATYPE から決める (WGS / GNM)
     - DFAST の version が COMMENT にあれば provenance.dfast_version に書く (型に無いキー)
-    - division を省くと、DFAST の出力なら BCT、そうでなければ UNK
+    - division は COMMON の DIVISION が ENV なら ENV を使う。それ以外は引数の division を使い、
+      それも省くと、DFAST の出力なら BCT、そうでなければ UNK
     - 全ての entry で同じ値の source の qualifier は sequences.common_source に置き、entry の source には
       entry 固有の qualifier だけを置く
     """
     common_entry = get_common_entry(mss)
     dfast_version = get_dfast_version(mss.entries)
     submission_category = get_submission_category(mss)
+    division = get_division(common_entry) or division
     if division is None:
         division = "BCT" if dfast_version else "UNK"
 

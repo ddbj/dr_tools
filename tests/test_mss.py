@@ -558,6 +558,73 @@ def test_from_record_submission_category_gnm_has_no_datatype_feature() -> None:
     assert _common_feature(MSS.from_record(record), "DATATYPE") is None
 
 
+def test_from_record_submission_category_mag_wgs_writes_datatype_feature() -> None:
+    record = _v3_record(provenance={"submission_category": "MAG-WGS"})
+    datatype = _common_feature(MSS.from_record(record), "DATATYPE")
+    assert datatype is not None
+    assert datatype.qualifiers == {"type": ["WGS"]}
+
+
+def test_from_record_submission_category_mag_gnm_has_no_datatype_feature() -> None:
+    record = _v3_record(provenance={"submission_category": "MAG-GNM"})
+    assert _common_feature(MSS.from_record(record), "DATATYPE") is None
+
+
+def test_from_record_env_division_writes_division_feature_before_datatype() -> None:
+    record = _v3_record(
+        provenance={"submission_category": "MAG-WGS"},
+        sequences={
+            "entries": [
+                {"alias": "e1", "name": "e1", "sequence": "acgt", "division": "ENV"},
+                {"alias": "e2", "name": "e2", "sequence": "acgt", "division": "ENV"},
+            ]
+        },
+    )
+    common = _features_of(MSS.from_record(record), "COMMON")
+    assert [f.qualifiers for f in common if f.type == "DIVISION"] == [{"division": ["ENV"]}]
+    types = [f.type for f in common]
+    assert types.index("DIVISION") < types.index("DATATYPE")
+
+
+@pytest.mark.parametrize("other", ["BCT", None])
+def test_from_record_env_mixed_with_another_division_warns_and_writes_env(other: str | None) -> None:
+    """DIVISION covers the whole submission, so the entry that is not ENV becomes ENV when the ann is read back."""
+    record = _v3_record(
+        sequences={
+            "entries": [
+                {"alias": "e1", "name": "e1", "sequence": "acgt", "division": other},
+                {"alias": "e2", "name": "e2", "sequence": "acgt", "division": "ENV"},
+            ]
+        },
+    )
+    with pytest.warns(UserWarning, match="DIVISION is 'ENV'"):
+        mss = MSS.from_record(record)
+    assert [f.qualifiers for f in _features_of(mss, "COMMON") if f.type == "DIVISION"] == [{"division": ["ENV"]}]
+
+
+def test_from_record_entries_all_env_write_division_without_warning() -> None:
+    record = _v3_record(
+        sequences={
+            "entries": [
+                {"alias": "e1", "name": "e1", "sequence": "acgt", "division": "ENV"},
+                {"alias": "e2", "name": "e2", "sequence": "acgt", "division": "ENV"},
+            ]
+        },
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        MSS.from_record(record)
+    assert not [w for w in caught if "entries have divisions" in str(w.message)]
+
+
+@pytest.mark.parametrize("division", ["BCT", "VRL", "UNK", None])
+def test_from_record_taxonomic_division_has_no_division_feature(division: str | None) -> None:
+    record = _v3_record(
+        sequences={"entries": [{"alias": "e1", "name": "e1", "sequence": "acgt", "division": division}]}
+    )
+    assert _common_feature(MSS.from_record(record), "DIVISION") is None
+
+
 def test_from_record_keywords_become_keyword_feature() -> None:
     record = _v3_record(sequences={"entries": [], "keywords": ["WGS", "STANDARD_DRAFT"]})
     keyword = _common_feature(MSS.from_record(record), "KEYWORD")

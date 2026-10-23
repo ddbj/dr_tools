@@ -23,6 +23,7 @@ dev = ["pytest", "hypothesis", "mypy", "ruff"]
 drt_ann2json = "dr_tools.ann2json:main"
 drt_json2ann = "dr_tools.json2ann:main"
 drt_json2gbk = "dr_tools.json2biopython:json2gbk_main"
+drt_json2gff = "dr_tools.json2gff:json2gff_main"
 drt_json2fasta = "dr_tools.json2fasta:json2fasta_main"
 drt_json2stats_for_dfast = "dr_tools.json2stats:json2stats_for_dfast_main"
 

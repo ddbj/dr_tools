@@ -18,7 +18,7 @@ Requirements:
 
 JSON は [ddbj-record-specifications](https://github.com/ddbj/ddbj-record-specifications) の DDBJ Record で、v1 / v2 / v3 の 3 つの版がある。
 
-- 読み込み (`drt_json2ann` / `json_to_seqrecords` / `drt_json2fasta` / `drt_json2stats` / `get_feature_json`) は、どの版の JSON も受け付ける。v1 / v2 の JSON は ddbj-record の converter で v3 に変換してから読む (v1 → v2 → v3)
+- 読み込み (`drt_json2ann` / `json_to_seqrecords` / `drt_json2fasta` / `drt_json2gff` / `json_to_gff` / `drt_json2stats` / `get_feature_json`) は、どの版の JSON も受け付ける。v1 / v2 の JSON は ddbj-record の converter で v3 に変換してから読む (v1 → v2 → v3)
 - 書き出し (`drt_ann2json`) は `record_version` で版を選ぶ。既定は v2 で、v3 を指定すると MSS から v3 を直接組み立てる (`provenance.source_format` は `"MSS"`)。v1 / v2 は v1 を組み立ててから converter で変換する
 - v3 の JSON を v1 / v2 に戻す converter は無いので、v3 の JSON を v1 / v2 として読む要求はエラーになる
 
@@ -33,7 +33,8 @@ MSS の ann と v3 の対応:
 | ST_COMMENT | `sequences.structured_comments[]` |
 | DATE `hold_date` (YYYYMMDD) | `submission.hold_date` (YYYY-MM-DD) |
 | KEYWORD | `sequences.keywords[]` |
-| DATATYPE `type` WGS | `provenance.submission_category` (`WGS` / `GNM`) |
+| DIVISION `division` ENV | `entries[].division` (全ての entry) |
+| DATATYPE `type` WGS | `provenance.submission_category` (読むときは `WGS` / `GNM`。書くときは `WGS` と `MAG-WGS` のように末尾が `-WGS` のもの) |
 | 全ての entry で同じ source の qualifier | `sequences.common_source` |
 | entry 固有の source の qualifier (`/plasmid` など) | `entries[].source_features[].source` (`common_source` を名前ごとに上書きする) |
 | source の `ff_definition` | `entries[].source_features[].definition` |
@@ -41,12 +42,12 @@ MSS の ann と v3 の対応:
 | feature の `locus_tag` | `projects[0].locus_tag_prefix[0].prefix` と `features[].locus_tag_id` |
 | 値の無い qualifier (`/pseudo` など) | `value` を省いた qualifier (`{}`) |
 
-`entries[].type` は source の qualifier から決める (`/plasmid` → plasmid、`/chromosome` → chromosome、`/organelle` → organelle、`/segment` → segment、無ければ WGS は unplaced、division が VRL なら segment、それ以外は chromosome)。`entries[].completeness` は `ff_definition` の文から決める (complete / nearly complete / partial。読めなければ省く)。`entries[].division` は `drt_ann2json` の `division` 引数で、省くと DFAST の出力では BCT、それ以外は UNK になる。
+`entries[].type` は source の qualifier から決める (`/plasmid` → plasmid、`/chromosome` → chromosome、`/organelle` → organelle、`/segment` → segment、無ければ WGS は unplaced、division が VRL なら segment、それ以外は chromosome)。`entries[].completeness` は `ff_definition` の文から決める (complete / nearly complete / partial。読めなければ省く)。`entries[].division` は COMMON の DIVISION が ENV なら ENV で、それ以外 (DIVISION が無いか、TSA や CON など) は `drt_ann2json` の `division` 引数で、それも省くと DFAST の出力では BCT、それ以外は UNK になる。v3 から ann を書くときは、entry の division が ENV なら DIVISION を書き、BCT や VRL などの分類の division (DDBJ が決める) は書かない。
 
 ## Usage
 
 ```python
-from dr_tools import drt_ann2json, drt_json2ann, json_to_seqrecords, drt_json2fasta, drt_json2stats
+from dr_tools import drt_ann2json, drt_json2ann, json_to_seqrecords, drt_json2fasta, drt_json2gff, drt_json2stats
 
 # DFAST が生成した MSS 登録ファイル (ann, seq) を DDBJ Record JSON に変換
 # record_version は "v1" / "v2" / "v3" で、既定は "v2"
@@ -65,6 +66,11 @@ records = json_to_seqrecords("examples/complete_genome.v3.json")
 from Bio import SeqIO
 with open("out.gbk", "w") as f:
     SeqIO.write(records, f, "genbank")
+
+
+# JSON ファイルを GFF3 に変換 (DFAST が出してきた形。json_to_gff は文字列を返す)
+# 配列は json_to_seqrecords で作るので、qualifier は GenBank 形式の出力と同じになる
+drt_json2gff("ddbj_record.json", "genome.gff3")
 
 
 # JSON ファイルから各種 FASTA ファイルを生成 (ゲノム、遺伝子塩基配列、タンパク質配列)
@@ -109,6 +115,13 @@ print(json.dumps(data, indent=2))
 
 その他、`dr_tools.MSS.MSS` に MSS 登録ファイル情報を格納するクラス (`MSS.parse` が ann / seq を、`MSS.from_json` / `MSS.from_record` が record を読む)、`dr_tools.json_utils` に record v3 を扱うための関数を定義している。`MSS.parse` は、列が 5 つに満たない ann の行を、足りない列を空として読む。seq は `>` で始まる行を配列名にし、`//` だけの行を読み飛ばす。
 
+GFF3 (`dr_tools.json2gff`) は、旧 DFAST と dfast_vrl の `genbank2gff.py` が出してきた形で書く。gene、source、assembly_gap を除く feature を 1 行ずつにし、2 列目は `/inference` の末尾の 2 つの要素 (無ければ `dfast`)、9 列目は `ID=<locus_tag>` と、`codon_start` と `transl_table` を除く全ての qualifier である。配列は末尾の `##FASTA` に大文字で折り返さずに付ける。`genbank2gff.py` から次の点を直した。
+
+- 複数の区間からなる位置 (join、環状ゲノムの原点をまたぐ位置) は、区間ごとに同じ ID の行を書き、CDS の phase を区間ごとに求める。`genbank2gff.py` は最小から最大までを 1 行にしたので、原点をまたぐ CDS がゲノムのほぼ全長になった。locus_tag の無い feature (ウイルスの ORF1ab の CDS や mat_peptide など) は、ファイルの中で一意な ID (`<entry の名前>_<type>_<番号>`) を作って付ける。GFF3 は、同じ ID の行を 1 つの feature として読むため
+- `/inference` に `:` が 2 つ無いときに落ちない
+- entry ごとに、その entry の行の前に `##sequence-region` を書く。値の無い qualifier は `true`、strand の無い区間は `.`、属性が 1 つも無い feature の 9 列目は `.` にする。属性の値の制御文字と `%` もエスケープし、seqid に使えない文字は UTF-8 のバイトごとに `%XX` にする
+- GenBank のテキストを経由しないので、折り返しで product に入る空白を直す `fix_blank_in_products` は要らない
+
 `examples/` には `complete_genome` (DFAST の完全ゲノム) と `vrl_result` (DFAST_VRL のウイルスゲノム) の ann / fa と、それぞれを v1 (`*.json`)、v2 (`*.v2.json`)、v3 (`*.v3.json`) にした JSON がある。JSON の配列は 10 文字に切り詰めてある。
 
 ## Scripts
@@ -117,6 +130,7 @@ print(json.dumps(data, indent=2))
 drt_ann2json [-o out.json] [-d division] [-r v1|v2|v3] input_mss_file.ann input_mss_file.fa
 drt_json2ann [-O out_dir] [-o out_prefix] input_file.json
 drt_json2gbk [-o out.gbk] input_file.json
+drt_json2gff [-o out.gff3] input_file.json
 drt_json2fasta [-O out_dir] input_file.json
 drt_json2stats_for_dfast [-o out.json] [-f] input_file.json
 ```
