@@ -14,7 +14,7 @@ from dr_tools.json_utils import (
     get_entry_id,
     get_locus_tag_prefix,
     load_json_to_ddbj_record_instance,
-    merge_source_qualifiers,
+    source_feature_qualifiers,
 )
 
 # COMMON の DIVISION に書く division。BCT や VRL などの分類の division は DDBJ が決めるので書かない。
@@ -345,7 +345,8 @@ class MSS:
         """
         record v3 から MSS インスタンスを作成する
 
-        entry の source は sequences.common_source を organism / mol_type / qualifier の名前ごとに上書きして展開する。
+        entry の main source は sequences.common_source を organism / mol_type / qualifier の名前ごとに上書きして展開する。
+        main source でない source feature には common_source を重ねない (source_feature_qualifiers)。
         locus_tag は projects[].locus_tag_prefix[].prefix と feature の locus_tag_id から組み立てる。
         value の無い qualifier は値の無い行 (True) にする。
         """
@@ -362,9 +363,11 @@ class MSS:
             entry = Entry(id=entry_id, name=entry_data.name or entry_id)
             features: list[Feature] = []
 
-            # source feature を作成し、common_source の内容を entry の source で上書きして展開する
-            for i, source_feature in enumerate(entry_data.source_features or []):
-                qualifiers = merge_source_qualifiers(common_source, source_feature.source)
+            # source feature を作成する。main source には common_source の内容を entry の source で上書きして展開する
+            source_features = entry_data.source_features or []
+            for i, (source_feature, qualifiers) in enumerate(
+                zip(source_features, source_feature_qualifiers(common_source, source_features), strict=True)
+            ):
                 if source_feature.definition:
                     qualifiers["ff_definition"] = list(source_feature.definition)
                 features.append(

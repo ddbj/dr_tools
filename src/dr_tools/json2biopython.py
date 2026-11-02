@@ -19,7 +19,9 @@ from dr_tools.json_utils import (
     get_entry_id,
     get_locus_tag_prefix,
     load_json_to_ddbj_record_instance,
+    main_source_index,
     merge_source_qualifiers,
+    source_feature_qualifiers,
 )
 from dr_tools.MSS import DB_TO_DBLINK_KEY, reference_status_to_mss
 from dr_tools.translation import translate_cds_with_transl_except
@@ -277,16 +279,15 @@ def json_to_seqrecords(json_file: Path) -> list[SeqRecord]:
 
         seq_record = SeqRecord(seq=seq, id=entry_id, name=entry_name, description="")
 
-        # source featureの作成 (COMMON_SOURCEの内容を entry の source で上書きして展開する)
+        # source featureの作成。main source には COMMON_SOURCEの内容を entry の source で上書きして展開し、
+        # main source でない source feature には重ねない
         source_features = entry_data.source_features or []
-        first_source = (
-            merge_source_qualifiers(common_source, source_features[0].source)
-            if source_features
-            else merge_source_qualifiers(common_source, None)
-        )
+        source_qualifiers_list = source_feature_qualifiers(common_source, source_features)
+        main = main_source_index(source_features)
+        main_source = source_qualifiers_list[main] if main is not None else merge_source_qualifiers(common_source, None)
 
         # molecule_typeの設定
-        mol_type_values = first_source.get("mol_type", ["DNA"])
+        mol_type_values = main_source.get("mol_type", ["DNA"])
         mol_type_value = str(mol_type_values[0]) if mol_type_values else "DNA"
         if "DNA" in mol_type_value:
             seq_record.annotations["molecule_type"] = "DNA"
@@ -303,7 +304,7 @@ def json_to_seqrecords(json_file: Path) -> list[SeqRecord]:
         seq_record.annotations["topology"] = topology
 
         # organismの設定
-        organism_values = first_source.get("organism", [])
+        organism_values = main_source.get("organism", [])
         organism = str(organism_values[0]) if organism_values else "Unknown organism"
         seq_record.annotations["organism"] = organism
         seq_record.annotations["source"] = organism
@@ -331,14 +332,13 @@ def json_to_seqrecords(json_file: Path) -> list[SeqRecord]:
         seq_length = len(seq)
         features = []
 
-        for i, source_feature in enumerate(source_features):
-            qualifiers = merge_source_qualifiers(common_source, source_feature.source)
+        for i, (source_feature, qualifiers) in enumerate(zip(source_features, source_qualifiers_list, strict=True)):
             feature = create_seqfeature(
                 "source", source_feature.location or "", qualifiers, seq_length, topology
             )  # seq_lengthとtopologyはlocationを解析するために必要
             features.append(feature)
-            if i == 0:
-                # DEFINITION は最初の source feature の ff_definition から作る
+            if i == main:
+                # DEFINITION は main source の ff_definition から作る
                 # @@[organism]@@ などは source の qualifier の値で、@@[submitter_seqid]@@ と @@[entry]@@ は entry の名前で展開する
                 ff_definition = source_feature.definition[0] if source_feature.definition else "@@[organism]@@"
                 source_qualifiers = {

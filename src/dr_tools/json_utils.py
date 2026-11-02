@@ -1,7 +1,7 @@
 # This file contains utility functions for working with JSON files
 import json
 import warnings
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, overload
 
@@ -14,7 +14,7 @@ from ddbj_record.schema import normalize_schema_version
 from ddbj_record.schema.v1 import DdbjRecord as DdbjRecordV1
 from ddbj_record.schema.v2 import DdbjRecord as DdbjRecordV2
 from ddbj_record.schema.v3 import DdbjRecord as DdbjRecordV3
-from ddbj_record.schema.v3 import Entry, Feature, Qualifier, Source
+from ddbj_record.schema.v3 import Entry, Feature, Qualifier, Source, SourceFeature
 
 # MSS の qualifier の形。値の無い qualifier (/pseudo など) は True で表す
 QualifierValues = dict[str, list[str | bool]]
@@ -149,6 +149,45 @@ def merge_source_qualifiers(common_source: Source | None, source: Source | None)
             merged[name] = value_list
 
     return merged
+
+
+# entry に source feature が 2 つ以上あるとき、main source に書く qualifier
+MAIN_SOURCE_QUALIFIERS = ("focus", "transgenic")
+
+
+def has_main_source_qualifier(qualifier_names: Iterable[str]) -> bool:
+    """source の qualifier の名前に /focus か /transgenic があるか"""
+    return any(name in MAIN_SOURCE_QUALIFIERS for name in qualifier_names)
+
+
+def main_source_index(source_features: Sequence[SourceFeature]) -> int | None:
+    """
+    entry の main source の位置を返す。source feature が無ければ None
+    main source は /focus か /transgenic を持つ最初の source feature で、どちらも無ければ先頭の source feature
+    """
+    if not source_features:
+        return None
+    for i, source_feature in enumerate(source_features):
+        if source_feature.source is not None and has_main_source_qualifier(
+            (source_feature.source.qualifiers or {}).keys()
+        ):
+            return i
+    return 0
+
+
+def source_feature_qualifiers(
+    common_source: Source | None, source_features: Sequence[SourceFeature]
+) -> list[QualifierValues]:
+    """
+    entry の source feature ごとの MSS の qualifier を、source_features の順に返す
+    main source には common_source を重ね (merge_source_qualifiers)、main source でない source feature には重ねない。
+    別の由来の領域を表す source feature に、common_source の /strain などを付けないためである
+    """
+    main = main_source_index(source_features)
+    return [
+        merge_source_qualifiers(common_source if i == main else None, source_feature.source)
+        for i, source_feature in enumerate(source_features)
+    ]
 
 
 def features_by_entry(record: DdbjRecordV3) -> dict[str, list[Feature]]:

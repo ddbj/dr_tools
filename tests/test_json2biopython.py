@@ -904,3 +904,45 @@ def test_create_reference_no_pubmed_no_pubmed_line_in_genbank_output() -> None:
     SeqIO.write([record], buf, "genbank")
     output = buf.getvalue()
     assert "PUBMED" not in output
+
+
+def test_json_to_seqrecords_takes_the_definition_and_organism_from_the_main_source_and_gives_other_sources_no_common_values(
+    tmp_path: Path,
+) -> None:
+    data = _build_v3_record_json(
+        common_source={
+            "organism": {"name": "Streptococcus pyogenes"},
+            "mol_type": "genomic DNA",
+            "qualifiers": {"strain": [{"value": "SF370"}]},
+        },
+        entries=[
+            {
+                "alias": "chr",
+                "name": "chr",
+                "topology": "linear",
+                "sequence": "atgaaacgctaa",
+                "source_features": [
+                    {
+                        "location": "3..4",
+                        "source": {"organism": {"name": "phage 370.1"}, "mol_type": "genomic RNA"},
+                        "definition": ["not the definition"],
+                    },
+                    {
+                        "location": "order(1..2,5..12)",
+                        "source": {"qualifiers": {"focus": [{}]}},
+                        "definition": ["@@[organism]@@ @@[strain]@@ DNA, complete genome"],
+                    },
+                ],
+            }
+        ],
+    )
+    record = json_to_seqrecords(_write_record_json(tmp_path, data))[0]
+
+    sources = [feature for feature in record.features if feature.type == "source"]
+    assert [dict(feature.qualifiers) for feature in sources] == [
+        {"organism": ["phage 370.1"], "mol_type": ["genomic RNA"]},
+        {"organism": ["Streptococcus pyogenes"], "mol_type": ["genomic DNA"], "strain": ["SF370"], "focus": [""]},
+    ]
+    assert record.description == "Streptococcus pyogenes SF370 DNA, complete genome"
+    assert record.annotations["organism"] == "Streptococcus pyogenes"
+    assert record.annotations["molecule_type"] == "DNA"

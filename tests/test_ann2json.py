@@ -830,6 +830,77 @@ def test_common_source_qualifiers_submitter_seqid_and_ff_definition_are_never_co
     assert common_source_qualifiers(mss) == {"organism": ["E. coli"]}
 
 
+def _mss_with_source_lists(*entry_sources: list[Qualifiers]) -> MSS:
+    """entry ごとに source feature を並べた MSS。source feature の location は 1..10、3..4、5..6 の順"""
+    entries = [Entry(id="COMMON", name="COMMON")]
+    sequences = []
+    counter = 1
+    for i, sources in enumerate(entry_sources):
+        entry_id = f"entry{i + 1}"
+        features = []
+        for j, q in enumerate(sources):
+            location = "1..10" if j == 0 else f"{2 * j + 1}..{2 * j + 2}"
+            features.append(Feature(type="source", id=f"feature_{counter}", location=location, qualifiers=q))
+            counter += 1
+        entries.append(Entry(id=entry_id, name=entry_id, features=features))
+        sequences.append(Sequence(id=entry_id, seq="acgtacgtac"))
+    return MSS(ann_file=None, seq_file=None, entries=entries, sequences=sequences)
+
+
+def test_common_source_qualifiers_reads_the_main_source_of_each_entry_only() -> None:
+    main: Qualifiers = {"organism": ["Streptococcus pyogenes"], "mol_type": ["genomic DNA"], "strain": ["SF370"]}
+    mss = _mss_with_source_lists(
+        [{"organism": ["phage 370.1"], "mol_type": ["genomic DNA"]}, {**main, "focus": [True]}],
+        [main],
+    )
+    assert common_source_qualifiers(mss) == main
+
+
+def test_common_source_qualifiers_never_moves_focus_or_transgenic() -> None:
+    marked: Qualifiers = {"organism": ["E. coli"], "focus": [True], "transgenic": [True]}
+    mss = _mss_with_source_lists([marked, {"organism": ["phage"]}], [marked, {"organism": ["phage"]}])
+    assert common_source_qualifiers(mss) == {"organism": ["E. coli"]}
+
+
+def test_mss_to_record_v3_keeps_every_qualifier_of_a_source_that_is_not_the_main_one() -> None:
+    main: Qualifiers = {"organism": ["Streptococcus pyogenes"], "mol_type": ["genomic DNA"], "strain": ["SF370"]}
+    phage: Qualifiers = {"organism": ["phage 370.1"], "mol_type": ["genomic DNA"], "strain": ["SF370"]}
+    mss = _mss_with_source_lists(
+        [
+            phage,
+            {
+                **main,
+                "focus": [True],
+                "plasmid": ["pX"],
+                "ff_definition": ["@@[organism]@@ plasmid, complete sequence"],
+            },
+        ],
+        [main],
+    )
+    record = mss_to_record_v3(mss)
+    assert record.sequences is not None
+    entry = (record.sequences.entries or [])[0]
+    sources = [sf.source.model_dump(exclude_none=True) if sf.source else None for sf in entry.source_features or []]
+
+    assert record.sequences.common_source is not None
+    assert record.sequences.common_source.model_dump(exclude_none=True) == {
+        "organism": {"name": "Streptococcus pyogenes"},
+        "mol_type": "genomic DNA",
+        "qualifiers": {"strain": [{"value": "SF370"}]},
+    }
+    assert sources == [
+        {
+            "organism": {"name": "phage 370.1"},
+            "mol_type": "genomic DNA",
+            "qualifiers": {"strain": [{"value": "SF370"}]},
+        },
+        {"qualifiers": {"focus": [{}], "plasmid": [{"value": "pX"}]}},
+    ]
+    # Entry.type と completeness は、先頭でなく main source から決まる
+    assert entry.type == "plasmid"
+    assert entry.completeness == "complete"
+
+
 def test_common_source_qualifiers_does_not_modify_the_mss() -> None:
     mss = _mss_with_sources({"organism": ["E. coli"], "strain": ["A"]}, {"organism": ["E. coli"], "strain": ["A"]})
     common_source_qualifiers(mss)
@@ -907,6 +978,16 @@ def _mss_strategy(draw: st.DrawFn) -> MSS:
             source_qualifiers["ff_definition"] = draw(st.lists(_text, min_size=1, max_size=2))
         features = [Feature(type="source", id=f"feature_{counter}", location="1..10", qualifiers=source_qualifiers)]
         counter += 1
+        # 別の由来の領域の source feature。main source は /focus か /transgenic を持つもので、先頭とは限らない。
+        # 印の無い entry (誤りの MSS) では、先頭が main source になる
+        for _ in range(draw(st.integers(min_value=0, max_value=2))):
+            other: Qualifiers = {"organism": [draw(_text)], "mol_type": [draw(_text)]}
+            other.update(draw(_source_qualifiers))
+            features.append(Feature(type="source", id=f"feature_{counter}", location="3..4", qualifiers=other))
+            counter += 1
+        if len(features) > 1 and draw(st.booleans()):
+            main = draw(st.sampled_from(features))
+            main.qualifiers[draw(st.sampled_from(["focus", "transgenic"]))] = [True]
         if draw(st.booleans()):
             features.append(Feature(type="TOPOLOGY", id=f"feature_{counter}", qualifiers={"circular": [True]}))
             counter += 1
