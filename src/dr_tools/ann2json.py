@@ -32,7 +32,7 @@ from ddbj_record.schema.v3 import Entry as EntryV3
 from ddbj_record.schema.v3 import Feature as FeatureV3
 from pydantic import BaseModel
 
-from dr_tools.json_utils import QualifierValues, values_to_qualifiers
+from dr_tools.json_utils import MAIN_SOURCE_QUALIFIERS, QualifierValues, has_main_source_qualifier, values_to_qualifiers
 from dr_tools.MSS import (
     DBLINK_KEY_TO_DB,
     MSS,
@@ -50,8 +50,9 @@ RecordVersion = Literal["v1", "v2", "v3"]
 # record v3 の provenance.source_format に書く値
 SOURCE_FORMAT_MSS = "MSS"
 
-# entry の source の qualifier のうち、全ての entry で同じ値でも common_source に移さないもの
-ENTRY_SPECIFIC_SOURCE_QUALIFIERS = ("submitter_seqid", "ff_definition")
+# entry の source の qualifier のうち、全ての entry で同じ値でも common_source に移さないもの。/focus と /transgenic は
+# main source の印なので、common_source に移すと record から main source が分からなくなる
+ENTRY_SPECIFIC_SOURCE_QUALIFIERS = ("submitter_seqid", "ff_definition", *MAIN_SOURCE_QUALIFIERS)
 
 # Entry.type を決める source の qualifier。先に書いたものを優先する
 ENTRY_TYPE_QUALIFIERS = ("plasmid", "chromosome", "organelle", "segment")
@@ -569,17 +570,28 @@ def infer_completeness(ff_definition: str | None) -> str | None:
     return None
 
 
+def main_source_feature(entry: Entry) -> Feature | None:
+    """
+    entry の main source を返す。source feature が無ければ None
+    main source は /focus か /transgenic を持つ最初の source feature で、どちらも無ければ先頭の source feature
+    """
+    source_features = [feature for feature in entry.features if feature.type == "source"]
+    marked = (feature for feature in source_features if has_main_source_qualifier(feature.qualifiers))
+    return next(marked, source_features[0] if source_features else None)
+
+
 def common_source_qualifiers(mss: MSS) -> QualifierValues:
     """
-    全ての entry の source feature で同じ値を持つ qualifier を返す (organism / mol_type を含む)
-    submitter_seqid と ff_definition は entry 固有なので含めない。MSS は変えない
+    全ての entry の main source で同じ値を持つ qualifier を返す (organism / mol_type を含む)
+    main source でない source feature は見ない。record v3 は common_source を main source にだけ重ねるためである
+    submitter_seqid、ff_definition、/focus、/transgenic は entry 固有なので含めない。MSS は変えない
     """
     source_features = [
         feature
         for entry in mss.entries
         if entry.id != "COMMON"
-        for feature in entry.features
-        if feature.type == "source"
+        for feature in [main_source_feature(entry)]
+        if feature is not None
     ]
     if not source_features:
         return {}
@@ -643,8 +655,8 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
     - DFAST の version が COMMENT にあれば provenance.dfast_version に書く (型に無いキー)
     - division は COMMON の DIVISION が ENV なら ENV を使う。それ以外は引数の division を使い、
       それも省くと、DFAST の出力なら BCT、そうでなければ UNK
-    - 全ての entry で同じ値の source の qualifier は sequences.common_source に置き、entry の source には
-      entry 固有の qualifier だけを置く
+    - 全ての entry の main source で同じ値の qualifier は sequences.common_source に置き、main source の source には
+      entry 固有の qualifier だけを置く。main source でない source feature の source には、その qualifier を全て置く
     """
     common_entry = get_common_entry(mss)
     dfast_version = get_dfast_version(mss.entries)
@@ -687,27 +699,29 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
             raise ValueError(f"Sequence for entry {entry.id} not found in the sequence file")
 
         source_features: list[SourceFeature] = []
+        main_source = main_source_feature(entry)
         entry_type: str | None = None
         completeness: str | None = None
         topology = "linear"
         for feature in entry.features:
             if feature.type == "source":
-                entry_specific = {
+                is_main = feature is main_source
+                own = {
                     key: values
                     for key, values in feature.qualifiers.items()
-                    if key != "ff_definition" and key not in common_qualifiers
+                    if key != "ff_definition" and not (is_main and key in common_qualifiers)
                 }
                 source_features.append(
                     SourceFeature(
                         alias=str(feature.id),
                         location=feature.location or None,
-                        source=_source_from_qualifiers(entry_specific),
+                        source=_source_from_qualifiers(own),
                         definition=_text_values(feature, "ff_definition") or None,
                     )
                 )
-                if entry_type is None:
+                if is_main:
+                    # Entry.type と completeness は main source の qualifier と ff_definition から決める
                     entry_type = infer_entry_type(feature.qualifiers, submission_category, division)
-                if completeness is None:
                     completeness = infer_completeness(_text_value(feature, "ff_definition"))
             elif feature.type == "TOPOLOGY":
                 if "circular" in feature.qualifiers:

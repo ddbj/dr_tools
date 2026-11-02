@@ -7,7 +7,7 @@ import pytest
 from ddbj_record.schema.v1 import DdbjRecord as DdbjRecordV1
 from ddbj_record.schema.v2 import DdbjRecord as DdbjRecordV2
 from ddbj_record.schema.v3 import DdbjRecord as DdbjRecordV3
-from ddbj_record.schema.v3 import Feature, Organism, Qualifier, Source
+from ddbj_record.schema.v3 import Feature, Organism, Qualifier, Source, SourceFeature
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -19,8 +19,10 @@ from dr_tools.json_utils import (
     get_locus_tag,
     get_locus_tag_prefix,
     load_json_to_ddbj_record_instance,
+    main_source_index,
     merge_source_qualifiers,
     qualifiers_to_values,
+    source_feature_qualifiers,
     values_to_qualifiers,
 )
 
@@ -437,3 +439,66 @@ def test_get_feature_json_cds_has_locus_tag_nucleotide_and_translation(full_reco
 
 def test_get_feature_json_same_result_from_v1_and_v3_json(full_record: dict[str, Path]) -> None:
     assert get_feature_json(full_record["v1"], "feature_11") == get_feature_json(full_record["v3"], "feature_11")
+
+
+# === main source ===
+
+
+def _sf(qualifiers: dict[str, list[Qualifier]] | None = None, organism: str | None = None) -> SourceFeature:
+    if qualifiers is None and organism is None:
+        return SourceFeature(location="1..10")
+    return SourceFeature(
+        location="1..10",
+        source=Source(organism=Organism(name=organism) if organism else None, qualifiers=qualifiers or {}),
+    )
+
+
+@pytest.mark.parametrize(
+    ("source_features", "expected"),
+    [
+        ([], None),
+        ([_sf()], 0),
+        ([_sf(), _sf()], 0),
+        ([_sf(organism="phage"), _sf({"focus": [Qualifier()]})], 1),
+        ([_sf(), _sf(organism="phage"), _sf({"transgenic": [Qualifier()]})], 2),
+        ([_sf({"transgenic": [Qualifier()]}), _sf({"focus": [Qualifier()]})], 0),
+        ([_sf({"focused": [Qualifier()], "note": [Qualifier(value="focus")]}), _sf({"focus": [Qualifier()]})], 1),
+    ],
+    ids=[
+        "no source feature",
+        "one",
+        "two without a mark: the first",
+        "/focus on the second",
+        "/transgenic on the third",
+        "both marked: the first marked one",
+        "only the qualifier named focus counts",
+    ],
+)
+def test_main_source_index(source_features: list[SourceFeature], expected: int | None) -> None:
+    assert main_source_index(source_features) == expected
+
+
+def test_source_feature_qualifiers_merges_common_source_into_the_main_source_only() -> None:
+    common = Source(
+        organism=Organism(name="Streptococcus pyogenes"),
+        mol_type="genomic DNA",
+        qualifiers={"strain": [Qualifier(value="SF370")]},
+    )
+    phage = SourceFeature(
+        location="529587..570504",
+        source=Source(organism=Organism(name="Streptococcus phage 370.1"), mol_type="genomic DNA"),
+    )
+    main = SourceFeature(
+        location="order(1..529586,570505..1852441)", source=Source(qualifiers={"focus": [Qualifier()]})
+    )
+
+    assert source_feature_qualifiers(common, [phage, main]) == [
+        {"organism": ["Streptococcus phage 370.1"], "mol_type": ["genomic DNA"]},
+        {"organism": ["Streptococcus pyogenes"], "mol_type": ["genomic DNA"], "strain": ["SF370"], "focus": [True]},
+    ]
+
+
+def test_source_feature_qualifiers_gives_a_source_feature_without_source_nothing_unless_it_is_the_main_one() -> None:
+    common = Source(organism=Organism(name="E. coli"))
+
+    assert source_feature_qualifiers(common, [SourceFeature(), SourceFeature()]) == [{"organism": ["E. coli"]}, {}]

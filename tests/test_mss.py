@@ -507,6 +507,45 @@ def test_from_record_entry_without_source_override_gets_common_source_only() -> 
     assert source.qualifiers == {"organism": ["E. coli"], "strain": ["A"]}
 
 
+def test_from_record_merges_common_source_into_the_main_source_only_wherever_it_is() -> None:
+    record = _v3_record(
+        sequences={
+            "common_source": {
+                "organism": {"name": "Streptococcus pyogenes"},
+                "mol_type": "genomic DNA",
+                "qualifiers": {"strain": [{"value": "SF370"}]},
+            },
+            "entries": [
+                {
+                    "alias": "e1",
+                    "name": "e1",
+                    "sequence": "acgtacgtac",
+                    "source_features": [
+                        {
+                            "location": "3..4",
+                            "source": {"organism": {"name": "phage 370.1"}, "mol_type": "genomic DNA"},
+                        },
+                        {
+                            "location": "order(1..2,5..10)",
+                            "source": {"qualifiers": {"focus": [{}]}},
+                            "definition": ["@@[organism]@@ @@[strain]@@ DNA, complete genome"],
+                        },
+                    ],
+                }
+            ],
+        }
+    )
+    phage, main = _features_of(MSS.from_record(record), "e1")[:2]
+    assert phage.qualifiers == {"organism": ["phage 370.1"], "mol_type": ["genomic DNA"]}
+    assert main.qualifiers == {
+        "organism": ["Streptococcus pyogenes"],
+        "mol_type": ["genomic DNA"],
+        "strain": ["SF370"],
+        "focus": [True],
+        "ff_definition": ["@@[organism]@@ @@[strain]@@ DNA, complete genome"],
+    }
+
+
 def test_from_record_source_features_topology_comments_then_features_in_order() -> None:
     record = _v3_record(
         sequences={

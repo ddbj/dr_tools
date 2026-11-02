@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -146,7 +146,7 @@ wheels = [
 [[package]]
 name = "ddbj-record"
 version = "0.0.0"
-source = { git = "https://github.com/ddbj/ddbj-record-specifications.git?rev=main#91a7434db88c391e1da45fcd25572fffb2b12a1c" }
+source = { git = "https://github.com/ddbj/ddbj-record-specifications.git?rev=main#21c81fe486bf222af2d4ee9b2d17fab25aa61274" }
 dependencies = [
     { name = "pydantic" },
 ]
