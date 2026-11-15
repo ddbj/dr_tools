@@ -526,8 +526,8 @@ def test_ann2json_v3_submitters_contact_first_with_organization_and_others_with_
 def test_ann2json_v3_hold_date_and_publication_date(eg_complete: dict[str, Path], tmp_path: Path) -> None:
     data = _ann2json_v3(eg_complete["ann"], eg_complete["seq"], tmp_path)
     assert data["submission"]["hold_date"] == "2025-03-31"
-    assert data["projects"][0]["publications"][0]["date"] == "2023"
-    assert data["projects"][0]["publications"][0]["status"] == "unpublished"
+    assert data["sequences"]["publications"][0]["date"] == "2023"
+    assert data["sequences"]["publications"][0]["status"] == "unpublished"
 
 
 def test_ann2json_v3_entry_comment_is_kept_in_entry_comments(eg_complete: dict[str, Path], tmp_path: Path) -> None:

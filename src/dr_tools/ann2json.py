@@ -681,12 +681,7 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
     )
 
     locus_tag_prefix = get_locus_tag_prefix_from_ann(mss.entries)
-    project = _or_none(
-        Project(
-            publications=build_publications(common_entry) or None,
-            locus_tag_prefix=[LocusTagPrefix(prefix=locus_tag_prefix)] if locus_tag_prefix else None,
-        )
-    )
+    project = Project(locus_tag_prefix=[LocusTagPrefix(prefix=locus_tag_prefix)]) if locus_tag_prefix else None
 
     common_qualifiers = common_source_qualifiers(mss)
     sequence_dict = {sequence.id: sequence.seq for sequence in mss.sequences}
@@ -751,6 +746,7 @@ def mss_to_record_v3(mss: MSS, division: str | None = None) -> DdbjRecordV3:
         entries=entries or None,
         structured_comments=build_structured_comments(common_entry) or None,
         keywords=build_keywords(common_entry) or None,
+        publications=build_publications(common_entry) or None,
     )
 
     return DdbjRecordV3(

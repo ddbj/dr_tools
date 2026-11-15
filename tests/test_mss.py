@@ -705,20 +705,18 @@ def test_from_record_no_relations_has_no_dblink_feature() -> None:
 
 def test_from_record_publication_becomes_reference_with_year_from_date_and_status_in_mss_form() -> None:
     record = _v3_record(
-        projects=[
-            {
-                "publications": [
-                    {
-                        "title": "T",
-                        "status": "in-press",
-                        "date": "2023-05-01",
-                        "journal": "J",
-                        "authors": [{"abbreviation": "Smith,J."}, {"name": "No Abbreviation"}],
-                        "consortiums": ["C1"],
-                    },
-                ]
-            }
-        ]
+        sequences={
+            "publications": [
+                {
+                    "title": "T",
+                    "status": "in-press",
+                    "date": "2023-05-01",
+                    "journal": "J",
+                    "authors": [{"abbreviation": "Smith,J."}, {"name": "No Abbreviation"}],
+                    "consortiums": ["C1"],
+                },
+            ]
+        }
     )
     reference = _common_feature(MSS.from_record(record), "REFERENCE")
     assert reference is not None
@@ -731,12 +729,24 @@ def test_from_record_publication_becomes_reference_with_year_from_date_and_statu
     ]
 
 
-def test_from_record_publications_of_all_projects_become_references() -> None:
+def test_from_record_sequences_publications_become_references_in_order() -> None:
+    record = _v3_record(sequences={"publications": [{"title": "B"}, {"title": "A"}, {"title": "B"}]})
+    references = [f for f in _features_of(MSS.from_record(record), "COMMON") if f.type == "REFERENCE"]
+    assert [f.qualifiers["title"] for f in references] == [["B"], ["A"], ["B"]]
+
+
+def test_from_record_project_publications_do_not_become_references() -> None:
     record = _v3_record(
-        projects=[{"accession": "PRJDB1", "publications": [{"title": "A"}]}, {"publications": [{"title": "B"}]}]
+        projects=[{"accession": "PRJDB1", "publications": [{"title": "A"}]}, {"publications": [{"title": "B"}]}],
+        sequences={"publications": [{"title": "S"}]},
     )
     references = [f for f in _features_of(MSS.from_record(record), "COMMON") if f.type == "REFERENCE"]
-    assert [f.qualifiers["title"] for f in references] == [["A"], ["B"]]
+    assert [f.qualifiers["title"] for f in references] == [["S"]]
+
+
+def test_from_record_publications_only_in_projects_write_no_reference() -> None:
+    record = _v3_record(projects=[{"publications": [{"title": "B"}]}])
+    assert _common_feature(MSS.from_record(record), "REFERENCE") is None
 
 
 def test_from_record_hold_date_is_written_as_yyyymmdd() -> None:
@@ -810,10 +820,10 @@ def test_from_record_common_feature_order_follows_mss_convention() -> None:
     record = _v3_record(
         provenance={"submission_category": "WGS"},
         submission={"hold_date": "2025-01-01", "comments": ["c"], "submitters": [{"abbreviation": "A,B."}]},
-        projects=[{"publications": [{"title": "T"}]}],
         sequences={
             "entries": [],
             "keywords": ["WGS"],
+            "publications": [{"title": "T"}],
             "structured_comments": [{"tagset_id": "X", "fields": {"a": "1"}}],
         },
         relations=[{"type": "xref", "target": {"db": "bioproject", "id": "PRJDB1"}}],

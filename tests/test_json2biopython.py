@@ -436,31 +436,40 @@ def test_json_to_seqrecords_v3_relations_become_dbxrefs(tmp_path: Path) -> None:
 
 
 def test_json_to_seqrecords_v3_publication_journal_fields_reach_reference(tmp_path: Path) -> None:
-    data = _build_v3_record_json(
-        projects=[
-            {
-                "publications": [
-                    {
-                        "title": "T",
-                        "status": "published",
-                        "date": "2024-05-01",
-                        "journal": "J Test",
-                        "volume": "3",
-                        "pages_from": "10",
-                        "pages_to": "12",
-                        "pubmed_id": "99999999",
-                        "authors": [{"abbreviation": "Smith,J."}],
-                    }
-                ]
-            }
-        ]
-    )
+    data = _build_v3_record_json()
+    data["sequences"]["publications"] = [
+        {
+            "title": "T",
+            "status": "published",
+            "date": "2024-05-01",
+            "journal": "J Test",
+            "volume": "3",
+            "pages_from": "10",
+            "pages_to": "12",
+            "pubmed_id": "99999999",
+            "authors": [{"abbreviation": "Smith,J."}],
+        }
+    ]
     records = json_to_seqrecords(_write_record_json(tmp_path, data))
     references = cast(list[Reference], records[0].annotations["references"])
     assert len(references) == 1  # submitters が無いので Direct Submission は無い
     publication = references[0]
     assert publication.journal == "J Test 3:10-12, (2024)"
     assert publication.pubmed_id == "99999999"
+
+
+def test_json_to_seqrecords_v3_sequences_publications_follow_direct_submission_in_order(tmp_path: Path) -> None:
+    data = _build_v3_record_json(submission={"submitters": [{"abbreviation": "Smith,J."}]})
+    data["sequences"]["publications"] = [{"title": "B"}, {"title": "A"}]
+    records = json_to_seqrecords(_write_record_json(tmp_path, data))
+    references = cast(list[Reference], records[0].annotations["references"])
+    assert [reference.title for reference in references] == ["Direct Submission", "B", "A"]
+
+
+def test_json_to_seqrecords_v3_project_publications_do_not_become_references(tmp_path: Path) -> None:
+    data = _build_v3_record_json(projects=[{"accession": "PRJDB1", "publications": [{"title": "P"}]}])
+    records = json_to_seqrecords(_write_record_json(tmp_path, data))
+    assert cast(list[Reference], records[0].annotations["references"]) == []
 
 
 # --- json_to_seqrecords: CDS translation wiring (実データ, full_record) ---
