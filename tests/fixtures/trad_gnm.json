@@ -50,24 +50,6 @@
         {
           "prefix": "PLH"
         }
-      ],
-      "publications": [
-        {
-          "title": "Complete genome sequencing of Paucilactobacillus hokkaidonensis",
-          "status": "unpublished",
-          "date": "2023",
-          "authors": [
-            {
-              "abbreviation": "Mishima,H."
-            },
-            {
-              "abbreviation": "Tanizawa,Y."
-            },
-            {
-              "abbreviation": "Nakamura,Y."
-            }
-          ]
-        }
       ]
     }
   ],
@@ -168,6 +150,24 @@
           "Genome Coverage": "60x",
           "Sequencing Technology": "Illumina MiSeq; PacBio RSII"
         }
+      }
+    ],
+    "publications": [
+      {
+        "title": "Complete genome sequencing of Paucilactobacillus hokkaidonensis",
+        "status": "unpublished",
+        "date": "2023",
+        "authors": [
+          {
+            "abbreviation": "Mishima,H."
+          },
+          {
+            "abbreviation": "Tanizawa,Y."
+          },
+          {
+            "abbreviation": "Nakamura,Y."
+          }
+        ]
       }
     ]
   },

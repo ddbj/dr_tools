@@ -51,28 +51,6 @@
       "Sequenced and annotated at NIG"
     ]
   },
-  "projects": [
-    {
-      "publications": [
-        {
-          "title": "Complete genome sequence of Severe acute respiratory syndrome coronavirus 2 isolate XXXXXX",
-          "status": "unpublished",
-          "date": "2021",
-          "authors": [
-            {
-              "abbreviation": "Tanizawa,Y."
-            },
-            {
-              "abbreviation": "Suzuki,Y."
-            },
-            {
-              "abbreviation": "Tanaka,M."
-            }
-          ]
-        }
-      ]
-    }
-  ],
   "sequences": {
     "common_source": {
       "organism": {
@@ -135,6 +113,24 @@
           "Genome Coverage": "2000x",
           "Sequencing Technology": "Illumina MiSeq"
         }
+      }
+    ],
+    "publications": [
+      {
+        "title": "Complete genome sequence of Severe acute respiratory syndrome coronavirus 2 isolate XXXXXX",
+        "status": "unpublished",
+        "date": "2021",
+        "authors": [
+          {
+            "abbreviation": "Tanizawa,Y."
+          },
+          {
+            "abbreviation": "Suzuki,Y."
+          },
+          {
+            "abbreviation": "Tanaka,M."
+          }
+        ]
       }
     ]
   },

@@ -437,9 +437,8 @@ def _common_entry_from_record(record: DdbjRecordV3) -> Entry:
 
     _add("DBLINK", _dblink_qualifiers(record.relations))
     _add("SUBMITTER", _submitter_qualifiers(submission.submitters if submission is not None else None))
-    for project in record.projects or []:
-        for publication in project.publications or []:
-            _add("REFERENCE", _reference_qualifiers(publication))
+    for publication in (sequences.publications if sequences is not None else None) or []:
+        _add("REFERENCE", _reference_qualifiers(publication))
     for comment in (submission.comments if submission is not None else None) or []:
         _add("COMMENT", {"line": list(comment.split("\n"))})
     for structured_comment in (sequences.structured_comments if sequences is not None else None) or []:

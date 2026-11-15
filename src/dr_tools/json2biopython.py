@@ -265,11 +265,10 @@ def json_to_seqrecords(json_file: Path) -> list[SeqRecord]:
     submitter = create_submitter(submission.submitters if submission is not None else None)
     if submitter:
         references.append(submitter)
-    for project in record.projects or []:
-        for publication in project.publications or []:
-            ref = create_reference(publication)
-            if ref:
-                references.append(ref)
+    for publication in (sequences.publications if sequences is not None else None) or []:
+        ref = create_reference(publication)
+        if ref:
+            references.append(ref)
 
     # エントリーごとにSeqRecordを作成
     for entry_data in (sequences.entries if sequences is not None else None) or []:
